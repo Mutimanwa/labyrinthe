@@ -26,7 +26,7 @@
   "bundle": {
     "active": true,
     "targets": ["nsis", "msi", "deb", "appimage", "dmg"],
-    "resources": ["../content"],
+    "resources": ["content"],
     "category": "Game",
     "shortDescription": "Simulation de hacking pédagogique — du terminal au white hat",
     "longDescription": "LABYRINTHE est une simulation close de cybersécurité : reconnaissance, exploitation, post-exploitation et défense, dans un monde fictif entièrement simulé. Aucune interaction avec le système réel."

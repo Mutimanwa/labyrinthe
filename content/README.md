@@ -13,4 +13,4 @@ npc/         archétypes ECHO : comportements, agendas, répliques — M3
 ```
 
 Chargement côté jeu : `window.LabyBridge.contentLoad('missions/bb-01.json')`
-(Tauri) ou `fetch('../content/missions/bb-01.json')` en édition web.
+(Tauri) ou `fetch('content/missions/bb-01.json')` en édition web.
