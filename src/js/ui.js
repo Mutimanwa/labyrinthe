@@ -685,6 +685,7 @@
     if (cmd === 'logs' || cmd === 'logview') { displayMode = 'logs'; renderDisplay(); say('Affichage des journaux dans DISPLAY.'); return; }
     if (cmd === 'forum') { displayMode = 'board'; renderDisplay(); say('Forum affiché dans DISPLAY.'); return; }
     if (cmd === 'contrats' || cmd === 'contracts') { openContracts(); say('Tableau des contrats ouvert.'); return; }
+    if (cmd === 'intro' || cmd === 'introduction') { if (window.LabyIntro) window.LabyIntro.open(); return; }
     if (cmd === 'profil') { if (window.LabyProfile) { window.LabyProfile.open(); } return; }
     if (cmd === 'mail' || cmd === 'poste') { if (window.LabyMail) { window.LabyMail.open(); } return; }
     if (cmd === 'echo' || cmd === 'bruit') { if (window.LabyEcho) say(window.LabyEcho.rapport(game)); return; }
@@ -864,7 +865,10 @@
 
   // -------------------------------------------------- SAUVEGARDE
   function autoSave() {
-    if (!resetInProgress && game) SaveStore.set(game.serialize());
+    if (!resetInProgress && game) {
+      if (window.LabyIntro) window.LabyIntro.checkpoint();
+      SaveStore.set(game.serialize());
+    }
   }
   // Dans la coque native Tauri, on écrit un VRAI fichier sur le disque.
   // Dans un navigateur, on retombe sur le téléchargement classique.
@@ -886,16 +890,18 @@
   // Une sauvegarde peut être syntaxiquement valide mais contenir un état
   // incohérent. En cas d'échec, rétablir la partie avant l'import.
   function restoreSafely(data) {
+    if (window.LabyIntro) window.LabyIntro.checkpoint();
     const previous = game.serialize();
     try {
       game.restore(data);
       $('cmd').type = 'text';
       fullRender();
+      if (window.LabyIntro) window.LabyIntro.sync();
     } catch (error) {
       let changed = true;
       try { changed = game.serialize() !== previous; } catch (_) { /* état partiellement restauré */ }
       if (changed) {
-        try { game.restore(previous); fullRender(); }
+        try { game.restore(previous); fullRender(); if (window.LabyIntro) window.LabyIntro.sync(); }
         catch (rollbackError) { throw new Error(error.message + ' (retour à la partie précédente impossible : ' + rollbackError.message + ')'); }
       }
       throw error;
@@ -972,7 +978,7 @@
     'traceroute', 'arp-scan', 'uname', 'history', 'shred', 'clear', 'date', 'env',
     'base64', 'sha256sum', 'xxd', 'strings', 'openssl', 'john', 'exe',
     'objectif', 'indice', 'valider', 'stats', 'cours', 'editeur', 'sauver', 'charger',
-    'exporter', 'importer', 'reset', 'trace', 'logs', 'logview', 'forum', 'sshd', 'honeypot', 'vols', 'rapport', 'soumettre', 'relais', 'marche', 'marché', 'run', 'gardien', 'tache-noire', 'tâche-noire', 'fin'];
+    'exporter', 'importer', 'reset', 'intro', 'trace', 'logs', 'logview', 'forum', 'sshd', 'honeypot', 'vols', 'rapport', 'soumettre', 'relais', 'marche', 'marché', 'run', 'gardien', 'tache-noire', 'tâche-noire', 'fin'];
 
   function complete(input) {
     const val = input.value, parts = val.split(/\s+/), box = $('suggest');
@@ -1061,6 +1067,7 @@
     }
     fullRender();
     if (window.LabyTutorial) window.LabyTutorial.start();
+    if (window.LabyIntro) window.LabyIntro.start({ onChange: autoSave });
   }
 
   async function init() {
@@ -1142,14 +1149,19 @@
 
     // boucle d'horloge : 20 images/seconde
     setInterval(() => {
-      game.tick(Date.now());
+      const now = Date.now();
+      if (window.LabyIntro && window.LabyIntro.isOpen()) {
+        if (game._clockLast !== undefined) game._clockLast = now;
+        return;
+      }
+      game.tick(now);
       renderProcesses(); renderTrace();
     }, 50);
     setInterval(autoSave, 30000);
     window.addEventListener('beforeunload', autoSave);
 
     await boot(false);
-    input.focus();
+    if (!window.LabyIntro || !window.LabyIntro.isOpen()) input.focus();
   }
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', () => init().catch(e => console.error(e)));

@@ -94,6 +94,7 @@ test('sauvegarde de l’API, compatibilité ancienne et import invalide non dest
   const legacy = JSON.parse(g.serialize());
   delete legacy.api;
   delete legacy.tutorial;
+  delete legacy.intro;
   delete legacy.reports;
 
   const response = g.api.handle('POST', '/api/users', {
@@ -102,6 +103,7 @@ test('sauvegarde de l’API, compatibilité ancienne et import invalide non dest
   });
   assert.equal(response.status, 201);
   g.tutorial.step = 3;
+  g.intro = { terminee: false, etape: 2, pauseEnregistreeA: 1000 };
   g.reports['bb-03'] = { valide: true };
   const saved = g.serialize();
   const loaded = newGame();
@@ -110,6 +112,7 @@ test('sauvegarde de l’API, compatibilité ancienne et import invalide non dest
   assert.equal(loaded.api.users[5].email, 'test@example.invalid');
   assert.equal(loaded.api.nextId, 7);
   assert.equal(loaded.tutorial.step, 3);
+  assert.deepEqual(loaded.intro, { terminee: false, etape: 2, pauseEnregistreeA: 1000 });
   assert.equal(loaded.reports['bb-03'].valide, true);
   assert.equal(JSON.parse(saved).api.calls, undefined);
 
@@ -121,6 +124,10 @@ test('sauvegarde de l’API, compatibilité ancienne et import invalide non dest
     d => { d.api.users.push(null); },
     d => { d.contracts.active = {}; },
     d => { d.tutorial.step = 1.5; },
+    d => { d.intro.terminee = 'oui'; },
+    d => { d.intro.etape = -1; },
+    d => { d.intro.etape = 1.5; },
+    d => { d.intro.pauseEnregistreeA = 'hier'; },
     d => { d.incidentsNoirs.push(null); },
     d => { d.tacheNoire.sauvegardes = { '/home/joueur/bloc_notes.txt': { contenu: 42, marqueur: 'x' } }; },
     d => { d.relais.position = 4; },
@@ -139,6 +146,7 @@ test('sauvegarde de l’API, compatibilité ancienne et import invalide non dest
   loaded.restore(JSON.stringify(legacy));
   assert.equal(loaded.api.users.length, 5);
   assert.equal(loaded.tutorial.hidden, true);
+  assert.deepEqual(loaded.intro, { terminee: true, etape: 0 });
   assert.deepEqual(loaded.reports, {});
 });
 

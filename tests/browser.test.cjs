@@ -52,16 +52,240 @@ async function makePage(t, options = {}) {
   page.on('pageerror', e => errors.push(e.message));
   return { page, errors };
 }
-async function ready(page) {
+async function ready(page, { passerIntro = true } = {}) {
   await page.waitForFunction(() => window.LABYRINTHE && window.LabyWeb?.ready() &&
     window.LabyContracts?.defs().length === 3 && window.LabyForum?.pret() &&
-    window.LABYRINTHE.game.__profileWrap && window.LABYRINTHE.game.__contractsWrap,
-  { timeout: 10000 });
+    window.LABYRINTHE.game.__profileWrap && window.LABYRINTHE.game.__contractsWrap &&
+    window.LabyIntro?.ready(), { timeout: 10000 });
+  if (passerIntro && await page.locator('#introOverlay').isVisible()) await page.locator('#introSkip').click();
 }
 async function command(page, text) {
   await page.locator('#cmd').fill(text);
   await page.locator('#cmd').press('Enter');
 }
+
+test('introduction : récit, navigation clavier, choix et relecture', async t => {
+  const { page, errors } = await makePage(t);
+  await page.goto(base);
+  await ready(page, { passerIntro: false });
+  assert.equal(await page.locator('#introOverlay').isVisible(), true);
+  assert.equal(await page.evaluate(() => document.getElementById('app').inert), true);
+  assert.equal(await page.locator('#introOverlay').getAttribute('aria-labelledby'), 'introTitle0');
+  assert.match(await page.locator('#introTitle0').innerText(), /Une porte vient\s+de s’ouvrir/);
+  assert.match(await page.locator('[data-intro-page="0"]').innerText(), /Cartographe/);
+  assert.match(await page.locator('[data-intro-page="0"]').innerText(), /fictifs/);
+  assert.equal(await page.evaluate(() => document.activeElement.id), 'introNext');
+  await page.keyboard.press('Tab');
+  assert.equal(await page.evaluate(() => document.activeElement.id), 'introSkip');
+  await page.keyboard.press('Tab');
+  assert.equal(await page.evaluate(() => document.activeElement.className), 'intro-content');
+  await page.keyboard.press('Shift+Tab');
+  await page.keyboard.press('Shift+Tab');
+  assert.equal(await page.evaluate(() => document.activeElement.id), 'introNext');
+
+  await page.locator('#introNext').click();
+  assert.match(await page.locator('#introProgress').innerText(), /^02 \/ 03/);
+  assert.equal(await page.locator('#introOverlay').getAttribute('aria-labelledby'), 'introTitle1');
+  assert.match(await page.locator('[data-intro-page="1"]').innerText(), /Terminal[\s\S]*Carte[\s\S]*Contrats/i);
+  await page.locator('#introBack').click();
+  assert.match(await page.locator('#introProgress').innerText(), /^01 \/ 03/);
+  await page.locator('#introNext').click();
+  await page.locator('#introNext').click();
+  assert.match(await page.locator('[data-intro-page="2"]').innerText(), /nmap -sn 10\.10\.0\.0\/24/);
+  assert.match(await page.locator('[data-intro-page="2"]').innerText(), /ssh joueur@10\.10\.0\.1/);
+  assert.match(await page.locator('[data-intro-page="2"]').innerText(), /cat \/home\/cours\/01_navigation\.txt/);
+  assert.equal(await page.evaluate(() => document.activeElement.id), 'introStart');
+  await page.locator('#introSolo').click();
+  assert.equal(await page.locator('#introOverlay').isVisible(), false);
+  assert.equal(await page.evaluate(() => document.getElementById('app').inert), false);
+  assert.equal(await page.locator('#panelTutorial').isVisible(), false);
+  assert.equal(await page.evaluate(() => LABYRINTHE.game.intro.terminee && LABYRINTHE.game.tutorial.hidden), true);
+
+  // Échap passe l'introduction sans changer le choix du guide et remet le focus.
+  await page.locator('#icoIntro').click();
+  assert.match(await page.locator('#introProgress').innerText(), /^01 \/ 03/);
+  await page.keyboard.press('Escape');
+  assert.equal(await page.locator('#introOverlay').isVisible(), false);
+  assert.equal(await page.evaluate(() => document.activeElement.id), 'icoIntro');
+  assert.equal(await page.evaluate(() => LABYRINTHE.game.tutorial.hidden), true);
+  await page.locator('#icoTutorial').click();
+  assert.equal(await page.locator('#panelTutorial').isVisible(), true);
+
+  await command(page, 'intro');
+  assert.equal(await page.locator('#introOverlay').isVisible(), true);
+  await page.locator('#introNext').click();
+  await page.locator('#introNext').click();
+  await page.locator('#introStart').click();
+  assert.equal(await page.locator('#panelTutorial').isVisible(), true);
+  assert.equal(await page.evaluate(() => document.activeElement.id), 'cmd');
+  assert.deepEqual(errors, []);
+});
+
+test('introduction : reprise sauvegardée et anciennes parties non interrompues', async t => {
+  const { page, errors } = await makePage(t);
+  await page.goto(base);
+  await ready(page, { passerIntro: false });
+  await page.locator('#introNext').click();
+  const paused = await page.evaluate(() => JSON.parse(localStorage.getItem('labyrinthe.save.v2')));
+  assert.equal(paused.intro.terminee, false);
+  assert.equal(paused.intro.etape, 1);
+  assert(Number.isFinite(paused.intro.pauseEnregistreeA));
+  await page.reload();
+  await ready(page, { passerIntro: false });
+  assert.match(await page.locator('#introProgress').innerText(), /^02 \/ 03/);
+  await page.locator('#introNext').click();
+  await page.locator('#introStart').click();
+  await page.reload();
+  await ready(page, { passerIntro: false });
+  assert.equal(await page.locator('#introOverlay').isVisible(), false);
+  assert.equal(await page.locator('#panelTutorial').isVisible(), true);
+  // Simuler deux minutes passées hors jeu : ni le chronomètre de la mission,
+  // ni celui de la partie ne doivent inclure cette absence.
+  paused.intro.pauseEnregistreeA -= 120000;
+  paused.missionStartedAt -= 120000;
+  paused.startedAt -= 120000;
+  const resumed = await makePage(t);
+  await resumed.page.addInitScript(save => localStorage.setItem('labyrinthe.save.v2', JSON.stringify(save)), paused);
+  await resumed.page.goto(base);
+  await ready(resumed.page, { passerIntro: false });
+  assert.match(await resumed.page.locator('#introProgress').innerText(), /^02 \/ 03/);
+  const times = await resumed.page.evaluate(() => ({ mission: Date.now() - LABYRINTHE.game.missionStartedAt,
+    partie: Date.now() - LABYRINTHE.game.startedAt, monde: LABYRINTHE.game.worldMin }));
+  assert(times.mission >= 0 && times.mission < 5000, JSON.stringify(times));
+  assert(times.partie >= 0 && times.partie < 5000, JSON.stringify(times));
+  assert(times.monde < 1, JSON.stringify(times));
+  await resumed.page.locator('#introNext').click();
+  await resumed.page.locator('#introStart').click();
+  assert.equal(await resumed.page.locator('#panelTutorial').isVisible(), true);
+  const completed = await resumed.page.evaluate(() => JSON.parse(localStorage.getItem('labyrinthe.save.v2')));
+  assert.equal(completed.intro.terminee, true);
+  assert.equal(completed.intro.pauseEnregistreeA, undefined);
+  const legacy = { ...completed };
+  delete legacy.intro;
+  delete legacy.tutorial;
+  const old = await makePage(t);
+  await old.page.addInitScript(save => localStorage.setItem('labyrinthe.save.v2', JSON.stringify(save)), legacy);
+  await old.page.goto(base);
+  await ready(old.page, { passerIntro: false });
+  assert.equal(await old.page.locator('#introOverlay').isVisible(), false);
+  assert.equal(await old.page.locator('#panelTutorial').isVisible(), false);
+  assert.deepEqual(await old.page.evaluate(() => LABYRINTHE.game.intro), { terminee: true, etape: 0 });
+  await old.page.locator('#icoIntro').click();
+  assert.equal(await old.page.locator('#introOverlay').isVisible(), true);
+  assert.deepEqual([...errors, ...resumed.errors, ...old.errors], []);
+});
+
+test('introduction : horloge, processus, traces et événements restent en pause', async t => {
+  const { page, errors } = await makePage(t);
+  await page.goto(base);
+  await ready(page, { passerIntro: false });
+  const monde = await page.evaluate(() => {
+    const g = LABYRINTHE.game;
+    g.worldMin = 100;
+    g.npc = { balayeur: { prochain: 25 }, chasseur: { prochain: 9999, pistes: 0 },
+      rancunier: { enColere: false, prochain: 0, vagues: 0 } };
+    g.forum = { threads: [{ id: 'u1', titre: 'test', statut: 'attente', sujet: 'terminal', niveau: 0, reponseA: 0, posts: [] }], compteur: 2 };
+    g.xp = 1200;
+    g.mail.phish = null;
+    return g.worldMin;
+  });
+  await page.waitForTimeout(1800); // dépasse les intervalles PNJ, forum et mail
+  assert.deepEqual(await page.evaluate(() => ({ monde: LABYRINTHE.game.worldMin,
+    prochain: LABYRINTHE.game.npc.balayeur.prochain, fil: LABYRINTHE.game.forum.threads[0].statut,
+    phish: LABYRINTHE.game.mail.phish })), { monde, prochain: 25, fil: 'attente', phish: null });
+  await page.evaluate(() => {
+    const g = LABYRINTHE.game;
+    g.npc.balayeur.prochain = 9999;
+    g.forum.threads = [];
+    g.xp = 0;
+  });
+  await page.locator('#introSkip').click();
+  const before = await page.evaluate(() => {
+    const g = LABYRINTHE.game, p = g.spawn('Hydra', []).process;
+    g.trace = { nodeId: 'academie', remaining: 30, total: 30, startedAt: Date.now() };
+    return { pid: p.pid };
+  });
+  await page.locator('#icoIntro').click();
+  const snapshot = await page.evaluate(pid => {
+    const g = LABYRINTHE.game, p = g.processes.find(p => p.pid === pid);
+    return { monde: g.worldMin, progress: p.progress, reste: g.trace.remaining,
+      ageMission: Date.now() - g.missionStartedAt, ageProcess: Date.now() - p.startedAt,
+      ageTrace: Date.now() - g.trace.startedAt };
+  }, before.pid);
+  await page.waitForTimeout(1600);
+  const during = await page.evaluate(pid => {
+    const g = LABYRINTHE.game, p = g.processes.find(p => p.pid === pid);
+    return { monde: g.worldMin, progress: p.progress, reste: g.trace.remaining, done: p.done };
+  }, before.pid);
+  assert.equal(during.monde, snapshot.monde);
+  assert.equal(during.progress, snapshot.progress);
+  assert.equal(during.reste, snapshot.reste);
+  assert.equal(during.done, false);
+  await page.locator('#introNext').click(); // checkpoint également lors d'une sauvegarde
+  await page.keyboard.press('Escape');
+  const after = await page.evaluate(pid => {
+    const g = LABYRINTHE.game, p = g.processes.find(p => p.pid === pid);
+    return { ageMission: Date.now() - g.missionStartedAt, ageProcess: Date.now() - p.startedAt,
+      ageTrace: Date.now() - g.trace.startedAt, monde: g.worldMin };
+  }, before.pid);
+  for (const key of ['ageMission', 'ageProcess', 'ageTrace']) {
+    assert(Math.abs(after[key] - snapshot[key]) < 500, `${key} : ${JSON.stringify({ snapshot, after })}`);
+  }
+  await page.waitForTimeout(250);
+  assert((await page.evaluate(() => LABYRINTHE.game.worldMin)) - after.monde < 1);
+  assert.deepEqual(errors, []);
+});
+
+test('introduction importée : dialogue synchronisé avec la sauvegarde', async t => {
+  const { page, errors } = await makePage(t);
+  await page.goto(base);
+  await ready(page);
+  const save = await page.evaluate(() => JSON.parse(LABYRINTHE.game.serialize()));
+  save.intro = { terminee: false, etape: 2, pauseEnregistreeA: Date.now() };
+  save.tutorial.hidden = true;
+  await page.locator('#fileInput').setInputFiles({ name: 'intro.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(save)) });
+  await page.locator('#introStart').waitFor();
+  assert.equal(await page.locator('#introOverlay').isVisible(), true);
+  assert.match(await page.locator('#introProgress').innerText(), /^03 \/ 03/);
+  // Un import peut aussi se terminer pendant que l'introduction est déjà ouverte.
+  await page.locator('#fileInput').setInputFiles({ name: 'invalid.json', mimeType: 'application/json', buffer: Buffer.from('{"v":4}') });
+  await page.waitForFunction(() => document.querySelector('#termOut').textContent.includes('Fichier invalide'));
+  assert.equal(await page.locator('#introOverlay').isVisible(), true);
+  assert.match(await page.locator('#introProgress').innerText(), /^03 \/ 03/);
+  const completed = JSON.parse(JSON.stringify(save));
+  completed.intro = { terminee: true, etape: 2 };
+  completed.credits = 777;
+  await page.locator('#fileInput').setInputFiles({ name: 'complete.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(completed)) });
+  await page.waitForFunction(() => LABYRINTHE.game.credits === 777);
+  assert.equal(await page.locator('#introOverlay').isVisible(), false);
+  assert.equal(await page.evaluate(() => document.getElementById('app').inert), false);
+  await page.locator('#icoIntro').click();
+  save.credits = 222;
+  await page.locator('#fileInput').setInputFiles({ name: 'intro2.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify(save)) });
+  await page.waitForFunction(() => LABYRINTHE.game.credits === 222);
+  assert.match(await page.locator('#introProgress').innerText(), /^03 \/ 03/);
+  await page.locator('#introStart').click();
+  assert.equal(await page.locator('#panelTutorial').isVisible(), true);
+  assert.equal(await page.evaluate(() => LABYRINTHE.game.intro.terminee), true);
+  assert.deepEqual(errors, []);
+});
+
+test('introduction : mise en page mobile et animations réduites', async t => {
+  const { page, errors } = await makePage(t, { viewport: { width: 375, height: 700 }, reducedMotion: 'reduce' });
+  await page.goto(base);
+  await ready(page, { passerIntro: false });
+  assert.equal(await page.locator('#introOverlay').isVisible(), true);
+  assert.equal(await page.locator('[data-intro-page="0"]').evaluate(e => getComputedStyle(e).animationName), 'none');
+  await page.locator('#introNext').click();
+  await page.locator('#introNext').click();
+  assert.equal(await page.locator('#introStart').isVisible(), true);
+  assert.equal(await page.locator('#introSolo').isVisible(), true);
+  const bounds = await page.locator('#introStart').boundingBox();
+  assert(bounds.x >= 0 && bounds.x + bounds.width <= 375 && bounds.y + bounds.height <= 700);
+  await page.locator('#introStart').click();
+  assert.equal(await page.locator('#introOverlay').isVisible(), false);
+  assert.deepEqual(errors, []);
+});
 
 test('démarrage, packs et guide jusqu’à la première mission', async t => {
   const { page, errors } = await makePage(t);
@@ -161,7 +385,8 @@ test('sauvegarde, restauration, import invalide et reset web', async t => {
   await page.evaluate(() => { window.__oldGame = LABYRINTHE.game; });
   await command(page, 'reset oui');
   await page.waitForFunction(() => !window.__oldGame && window.LABYRINTHE?.game?.__contractsWrap && LABYRINTHE.game.__profileWrap);
-  await ready(page);
+  await ready(page, { passerIntro: false });
+  assert.equal(await page.locator('#introOverlay').isVisible(), true);
   const state = await page.evaluate(() => {
     const g = LABYRINTHE.game, before = g.xp;
     g.record('nmap', { target: 'academie', sV: true });
@@ -466,7 +691,11 @@ test('monofichier ouvert en file:// : packs intacts et exécution hors ligne', a
   const network = [];
   page.on('request', request => { if (!request.url().startsWith('file:')) network.push(request.url()); });
   await page.goto(pathToFileURL(path.join(ROOT, 'dist/labyrinthe-single.html')).href);
-  await ready(page);
+  await ready(page, { passerIntro: false });
+  assert.equal(await page.locator('#introOverlay').isVisible(), true);
+  await page.locator('#introNext').click();
+  assert.match(await page.locator('#introProgress').innerText(), /^02 \/ 03/);
+  await page.locator('#introSkip').click();
   assert.equal(await page.evaluate(() => LabyWeb.sites().length), 12);
   assert.equal(await page.locator('#tutorialProgress').innerText(), '1/6');
   const embedded = await page.evaluate(() => window.__LABY_CONTENT__);

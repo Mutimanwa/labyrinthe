@@ -138,6 +138,7 @@
     if (!b.welcomed) { b.welcomed = true; mailBienvenue(); }
 
     setInterval(() => {
+      if (global.LabyIntro && global.LabyIntro.isOpen()) return;
       // restore() remplace l'objet mail : ne pas conserver une référence vers
       // l'ancienne boîte, sinon les échéances et le phishing se désynchronisent.
       const courant = game();

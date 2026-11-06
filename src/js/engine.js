@@ -446,7 +446,7 @@
 
   COMMANDES DU JEU (interface, pas du Linux) :
     objectif  indice  valider  stats  cours  editeur  sauver  exporter  profil  mail  echo
-    contrats  rapport  trace on/off  logs  forum  reset  vraies
+    intro  contrats  rapport  trace on/off  logs  forum  reset  vraies
     relais  marché  run  gardien  tache-noire  fin  (monde du Puits, entièrement fictif)
 
   'vraies'  → correspondance avec les anciennes commandes fictives
@@ -937,6 +937,7 @@ lo: flags=73<UP,LOOPBACK,RUNNING>  mtu 65536
     grep: "grep [-i] [-n] [-v] [-c] [-r] MOTIF <fichier>\n  Filtre les lignes. -i casse, -n numéros, -v inverse,\n  -c compte, -r récursif.",
     find: "find [dossier] -name <motif>\n  Cherche des fichiers. Ex : find / -name *.log",
     chmod: "chmod <mode> <fichier>\n  Change les permissions. Ex : chmod 755 script.py",
+    intro: "intro\n  Revoir l'introduction et choisir si le guide des premiers pas est affiché.",
     relais: "relais\n  Statut du chenillard vers le Puits (à partir de 3000 xp).\nrelais sauter\n  Lance le prochain saut ; 50 crédits à l'arrivée.\nrelais arreter / relais recommencer\n  Annule un saut / repart du début.",
     marche: "marché ou marche\n  Liste les achats fictifs après l'arrivée au Puits.\n  marché changer <crédits>  |  marché acheter <id>  |  marché inventaire",
     run: "run <fichier>\n  Simule l'exécution d'un fichier du jeu ; les articles piégés ont des conséquences fictives.",

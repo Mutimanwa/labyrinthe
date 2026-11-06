@@ -23,9 +23,18 @@ Ou, avec Node.js installé : `npm run dev:web`. Le serveur dessert à la fois
 pas pour charger les sites, contrats et forums. Les options `--bind` et
 `--port` permettent de changer l'adresse et le port.
 
-Au premier lancement, le **guide initial** accompagne la première mission.
-Il est facultatif : le bouton PASSER le masque et l'icône ◎ dans la barre haute
-permet de le rouvrir. La progression est sauvegardée avec la partie.
+Au début d'une nouvelle partie, une **introduction narrative** transmet un
+message du Cartographe, présente le terminal, la carte et les contrats, puis
+propose les premières étapes sur ACADEMIE. On peut la passer (ou utiliser Échap),
+ou la parcourir puis choisir le guide ou l'exploration libre. L'horloge et les
+événements du jeu restent en pause pendant la lecture. Une première introduction
+interrompue reprend à la dernière page sauvegardée ; les anciennes parties ne
+sont pas interrompues.
+Pour la revoir : icône ⓘ dans la barre haute ou commande `intro`.
+
+Le **guide initial** accompagne ensuite la première mission. Il est facultatif :
+le bouton PASSER le masque et l'icône ◎ dans la barre haute permet de le rouvrir.
+Sa progression est sauvegardée avec la partie.
 
 À partir de 3 000 XP, `relais` permet d'atteindre le Puits en trois sauts
 simulés. `marché` (ou `marche`) présente les articles ; leurs effets, les
@@ -68,7 +77,7 @@ sont générées depuis `src-tauri/icon.svg`.
 npm ci
 npm test                         # moteur, parcours initial, sauvegarde, API et missions web
 npx playwright install chromium  # une seule fois, pour les tests navigateur
-npm run test:browser             # interface, reset, rapport, CSP et monofichier
+npm run test:browser             # introduction, interface, reset, rapport, CSP et monofichier
 ```
 
 On peut utiliser un Chromium déjà installé en définissant `CHROMIUM_PATH` avant
@@ -85,6 +94,7 @@ src/js/campaign.js   monde et 16 missions initiales
 src/js/webdev.js     machine et 6 missions web
 src/js/jsrun.js      adaptation TypeScript et lancement du moteur isolé
 src/js/quickjs-runtime.js  moteur QuickJS/WASM embarqué pour l'utilisation hors ligne
+src/js/intro.js      introduction narrative et pause pendant la lecture
 src/js/tutorial.js   guide facultatif des premiers pas
 src/js/bridge.js     contenu et sauvegarde web/Tauri
 content/             packs de sites, contrats et forum

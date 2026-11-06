@@ -123,6 +123,7 @@
     const g = game();
     if (!g) return void setTimeout(ordonnanceur, 2000);
     setInterval(() => {
+      if (global.LabyIntro && global.LabyIntro.isOpen()) return;
       const monde = g.worldMin || 0;
       let change = false;
       for (const fil of etat().threads) {

@@ -106,6 +106,7 @@
       // M2 — profil joueur, horloge du monde (T6), contrats data (T7)
       this.xp = 0; this.xpVersion = 1; this.respect = 0; this.cred = 0; this.sats = 0;
       this.worldMin = 0;                                   // minutes monde écoulées (1 s réelle = 1 min)
+      this.intro = { terminee: false, etape: 0 };         // introduction narrative facultative
       this.tutorial = { step: 0, hidden: false };         // guide facultatif des premiers pas
       this.contractsState = { active: [], done: [] };
       this.techKeys = {};                                  // T8 — XP anti-grind : techniques déjà récompensées
@@ -227,6 +228,7 @@
         respect: this.respect || 0,
         cred: this.cred || 0,
         worldMin: Math.round(this.worldMin || 0),
+        intro: this.intro || { terminee: true, etape: 0 },
         tutorial: this.tutorial || { step: 0, hidden: true },
         contracts: this.contractsState || { active: [], done: [] },
         api: this.api && typeof this.api.snapshot === 'function' ? this.api.snapshot() : null,
@@ -293,6 +295,11 @@
       if (d.tutorial != null && (!isObject(d.tutorial) ||
           (d.tutorial.step != null && !Number.isInteger(d.tutorial.step)))) {
         throw new Error('guide de sauvegarde invalide');
+      }
+      if (d.intro != null && (!isObject(d.intro) || typeof d.intro.terminee !== 'boolean' ||
+          !Number.isInteger(d.intro.etape) || d.intro.etape < 0 ||
+          (d.intro.pauseEnregistreeA != null && (!Number.isFinite(d.intro.pauseEnregistreeA) || d.intro.pauseEnregistreeA < 0)))) {
+        throw new Error('introduction de sauvegarde invalide');
       }
       if ((d.worldMin != null && (!Number.isFinite(d.worldMin) || d.worldMin < 0)) ||
           (d.relais != null && (!isObject(d.relais) ||
@@ -376,6 +383,9 @@
       // concentrer artificiellement la décroissance des traces.
       if (this._clockLast !== undefined) this._clockLast = Date.now();
       if (this._echoMonde !== undefined) this._echoMonde = this.worldMin;
+      // Ne pas interrompre les anciennes parties, qui peuvent revoir
+      // l'introduction à la demande depuis la barre haute.
+      this.intro = d.intro || { terminee: true, etape: 0 };
       // Les anciennes parties n'affichent pas le guide de force ; ◎ permet
       // de le rouvrir à tout moment.
       this.tutorial = d.tutorial || { step: 0, hidden: true };
