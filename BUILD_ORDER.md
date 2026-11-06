@@ -6,6 +6,11 @@ vérifiable en jeu, soit ce n'est pas fini.
 
 - ✅ terminé · 🔶 en cours · ⬜ à faire
 
+> Les mentions de tests et de jalons ci-dessous sont historiques. L'édition web
+> et le pont Tauri simulé sont couverts par les suites décrites dans le README ;
+> la compilation et le packaging Tauri natifs restent à vérifier sur un système
+> disposant de Rust et des dépendances requises.
+
 ## Règles de séquençage (le pourquoi du chemin critique)
 
 1. **Le contenu avant les contenus** : le chargeur de packs (T1) précède tout
@@ -77,8 +82,8 @@ hooks audio au fil de l'eau ──► T23 palette complète · T24 i18n EN ─�
 | 18 | T18 | Chenillard de relais (accès Puits, coût/délai par saut) | T8, T9 | T19 | 3 sauts relais1→relais2→relais3→puits, coût 50 cr/saut, latence 3s, verrou OPÉRATEUR (3000 xp) 🟢 | M | ✅ |
 | 19 | T19 | Marché du Puits + sats + articles piégés | T8, T18 | T20 | marché liste/acheter/changer, inventaire, run + détection piège, taux de change fluctuant, persistance v4 🟢 | M | ✅ |
 | 20 | T20 | GARDIEN enquêtes + Tâche-Noire (rançon 3-4) + fins doubles | T13, T19 | fin de campagne | incidents noirs, enquête GARDIEN, rançon Tâche-Noire, fin blanche/noire 🟢 | L | ✅ |
-| 21 | T21 | Sauvegarde SQLite par défaut (bridge Tauri), migration v2→v3 | contenu stabilisé | T22 | SaveStore unifié (SQLite/Tauri + localStorage fallback), migration auto v2→v3 🟢 | S | ✅ |
-| 22 | T22 | Packaging `.exe` (NSIS/MSI) + CI matrice | T21 | **M5 ✔** | tauri.conf.json (targets nsis/msi), Cargo.toml (rusqlite bundled), main.rs (commandes save), build-windows.sh + BUILD_WINDOWS.md 🟢 | M | ✅ |
+| 21 | T21 | Sauvegarde SQLite par défaut (bridge Tauri), migration v2→v3 | contenu stabilisé | T22 | SaveStore unifié et migration ; pont simulé testé, natif à vérifier | S | 🔶 |
+| 22 | T22 | Packaging `.exe` (NSIS/MSI) + CI matrice | T21 | **M5** | Configuration et icônes présentes ; build et installateurs natifs à vérifier | M | 🔶 |
 | 23 | T23 | Palette audio complète (heartbeat trace, disque intrusion, drone Puits) | hooks des systèmes | M6 | chaque événement §11 a son son | S | ⬜ |
 | 24 | T24 | i18n EN (commandes déjà EN) | contenu figé | M6 | bascule FR/EN sans perte | S | ⬜ |
 
@@ -155,15 +160,15 @@ l'écart.
 
 **T17 livré — rapport de pentest.** Commande `rapport <id>` ouvre un gabarit dans l'éditeur (sections : vulnérabilité, preuve, impact, correctif, signature). `rapport soumettre <id>` valide par présence de contenu (note 0-100, 100 = validé). Contrats `report_required` (ex : bb-03) bloquent leur récompense tant que le rapport n'est pas validé. Tests Node : gabarit, rejet incomplet, validation 100/100, persistance v4 🟢.
 
-**T18 livré — chenillard de relais.** Nodes relais1 (10.10.0.20), relais2 (10.10.0.21), relais3 (10.10.0.22), Puits (10.10.0.99). Chaîne relais1→relais2→relais3→puits. Commande `relais` (statut), `relais sauter` (50 cr + latence 3s par saut), `relais arreter`. Verrou OPÉRATEUR (3000 xp). À l'arrivée : Puits découvert, lié au poste, SSH possible. Persistance v4 (`game.relais`). Tests Node : 32/32 🟢.
+**T18 — chenillard de relais.** Nodes relais1 (10.10.0.20), relais2 (10.10.0.21), relais3 (10.10.0.22), Puits (10.10.0.99). `relais sauter` lance un processus de 3 s (1 s avec le relais privé) et débite 50 cr à l'arrivée ; `relais arreter` annule sans débit et `relais recommencer` repart du début. Verrou OPÉRATEUR (3000 xp). À l'arrivée : Puits découvert, lié au poste, `ssh joueur@10.10.0.99` avec le mot de passe fictif `puits`. Persistance v4 (`game.relais`). Voir les tests actuels dans `tests/market.test.cjs`.
 
 **Enchaîner sur T19 — Marché du Puits + sats + articles piégés.** Le Puits est maintenant atteignable ; T19 ajoutera le marché, les achats en sats, et les binaires piégés.
 
-**T19 livré — marché du Puits + sats + articles piégés.** Commande `marché` (liste/acheter/changer/inventaire) accessible uniquement après avoir atteint le Puits via le chenillard de relais. 4 articles : Wordlist Premium (50 sats, sûr), Relais Privé (100 sats, sûr), Exploit 0-day (200 sats, sûr), Nettoyeur Magique (30 sats, PIÉGÉ — porte dérobée simulée, −5 sats −5 respect si exécuté). `marché changer <crédits>` échange crédits en sats au taux fluctuant (800–1200 cr/sat, sinusoïde 30 min). `run <fichier>` exécute un fichier acheté et détecte les pièges. Inventaire et achats persistés en v4. Tests Node : 36/36 🟢.
+**T19 — marché du Puits + sats + articles piégés.** `marché` ou `marche` (liste/acheter/changer/inventaire) après le chenillard. 4 articles : Wordlist Premium (50 sats), Relais Privé (100 sats), module fictif limité au laboratoire CODE (200 sats) et Nettoyeur Magique piégé (30 sats). `marché changer <crédits>` échange au taux fluctuant de 40–60 cr/sat (période 30 min). Inventaire, achats et sats sont persistés ; une ancienne wordlist achetée mais absente est migrée sans écraser les fichiers du joueur. Voir `tests/market.test.cjs`.
 
 **Enchaîner sur T20 — GARDIEN enquêtes + Tâche-Noire (rançon 3-4) + fins doubles.** GARDIEN patrouille surface + Puits. Tâche-Noire chiffre des fichiers si le joueur traîne dans le Puits mal protégé. Fin blanche et fin noire atteignables.
 
-**T20 livré — GARDIEN enquêtes + Tâche-Noire + fins doubles.** Commande `gardien` (statut de l'enquête), `tache-noire` (statut/payer/refuser rançon), `fin` (détermine fin blanche ou noire). Système d'incidents noirs : achat d'article piégé ou exécution de binaire du Puits enregistrent un incident. À 2 incidents, le GARDIEN ouvre une enquête (convocation). La Tâche-Noire peut frapper et chiffrer des fichiers (rançon en sats). Fin blanche si Respect ≥ Créd et peu d'incidents ; fin noire si Créd > Respect ou ≥3 incidents. Persistance v4 (`incidentsNoirs`, `gardienEnquete`, `tacheNoire`, `fin`). Tests Node : 32/32 🟢.
+**T20 — GARDIEN, Tâche-Noire et fins.** À deux nouveaux incidents, `gardien cooperer` ou `gardien resister` clôt l'enquête avec leurs conséquences indiquées. Le script piégé peut déclencher une simulation Tâche-Noire sur une note du jeu ; `tache-noire payer`, `nettoyer` ou `refuser` proposent les choix détaillés dans la bible, sans toucher au disque réel. Après 22 missions, `fin` choisit une issue blanche ou noire **narrative**, sans débloquer de nouveau contrat. Persistance v4 (`incidentsNoirs`, `gardienEnquete`, `tacheNoire`, `fin`). Voir `tests/market.test.cjs`.
 
 **Enchaîner sur T21 — Sauvegarde SQLite par défaut (bridge actif), migration v2→v3.** La sauvegarde v4 est stabilisée ; T21 ajoutera le bridge Tauri pour SQLite.
 

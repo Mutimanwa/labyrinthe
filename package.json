@@ -4,13 +4,20 @@
   "version": "0.1.0",
   "description": "Simulation de hacking pédagogique — frontend statique + shell Tauri",
   "scripts": {
-    "dev:web": "python3 -m http.server 8000 --directory src",
+    "dev:web": "python3 serve.py",
     "tauri": "tauri",
     "dev": "tauri dev",
     "build": "tauri build",
-    "single": "python3 build-single.py"
+    "build:sandbox": "node tools/build-sandbox.cjs",
+    "single": "python3 build-single.py",
+    "test": "node --test tests/unit.test.cjs tests/campaign.test.cjs tests/market.test.cjs",
+    "test:browser": "node --test tests/browser.test.cjs"
   },
   "devDependencies": {
-    "@tauri-apps/cli": "^2"
+    "@jitl/quickjs-singlefile-browser-release-sync": "0.32.0",
+    "@tauri-apps/cli": "^2",
+    "esbuild": "0.28.2",
+    "playwright": "1.65.0",
+    "quickjs-emscripten-core": "0.32.0"
   }
 }

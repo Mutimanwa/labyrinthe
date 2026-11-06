@@ -17,6 +17,7 @@
     <button class="ico" id="icoSwap" title="Inverser terminal / affichage">⇄</button>
     <button class="ico" id="icoSave" title="Sauvegarder">▣</button>
     <button class="ico" id="icoHelp" title="Aide">?</button>
+    <button class="ico" id="icoTutorial" title="Guide des premiers pas" aria-label="Guide des premiers pas" aria-controls="panelTutorial" aria-expanded="false">◎</button>
     <button class="ico" id="icoSound" title="Son : activer / couper">♪</button>
     <button class="ico" id="icoMail" title="Poste — boîte de réception">✉</button>
     <span id="worldClock" title="Heure du monde — 1 s réelle = 1 min dans le Labyrinthe">—</span>
@@ -42,6 +43,20 @@
           <div class="ramprocs"><span id="ramProcs">0</span> processus</div>
         </div>
       </div>
+
+      <section class="panel" id="panelTutorial" aria-labelledby="tutorialHeading" hidden>
+        <div class="phead"><span id="tutorialHeading">GUIDE INITIAL</span><span class="sp"></span><span id="tutorialProgress"></span></div>
+        <div class="pbody tutorial-body" aria-live="polite">
+          <div id="tutorialTitle" class="tutorial-title"></div>
+          <p id="tutorialText"></p>
+          <code id="tutorialCommand" class="tutorial-command"></code>
+          <p id="tutorialHint" class="tutorial-hint"></p>
+          <div class="tutorial-actions">
+            <button id="tutorialInsert" type="button">INSÉRER</button>
+            <button id="tutorialSkip" type="button">PASSER</button>
+          </div>
+        </div>
+      </section>
 
       <div id="procStack"></div>
 
@@ -129,10 +144,13 @@
   </div>
 </div>
 
+<!-- Sélecteur utilisé par la commande « importer ». -->
+<input id="fileInput" type="file" accept=".json,application/json" hidden>
+
 <!-- ======================= ÉDITEUR ======================= -->
 <div class="ov" id="editor">
   <div class="modal">
-    <div class="mh"><h3>Éditeur Python</h3><button id="editorClose">×</button></div>
+    <div class="mh"><h3>Éditeur de fichiers</h3><button id="editorClose">×</button></div>
     <div class="ed-path" id="editorPath">—</div>
     <textarea id="editorText" spellcheck="false"></textarea>
     <div class="ed-bar">
@@ -149,6 +167,7 @@
 <script src="js/engine.js"></script>
 <script src="js/campaign.js"></script>
 <script src="js/apiserver.js"></script>
+<script src="js/quickjs-runtime.js"></script>
 <script src="js/jsrun.js"></script>
 <script src="js/webdev.js"></script>
 <script src="js/game.js"></script>
@@ -156,6 +175,7 @@
 <script src="js/audio.js"></script>
 <script src="js/realcmd.js"></script>
 <script src="js/ui.js"></script>
+<script src="js/tutorial.js"></script>
 <script src="js/browser.js"></script>
 <script src="js/clock.js"></script>
 <script src="js/contracts.js"></script>

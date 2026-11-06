@@ -96,7 +96,12 @@
 
   function debriefPhish(reussi) {
     const b = boite();
+    // L'exercice ne peut être évalué qu'une fois, même si un ancien message
+    // reste ouvert après une sauvegarde ou plusieurs clics.
+    if (!b.phish || b.phish.statut !== 'envoye') return false;
     b.phish.statut = reussi ? 'reussi' : 'rate';
+    const bouton = document.querySelector('#mlRead [data-phish-confirm]');
+    if (bouton) bouton.disabled = true;
     const g = game();
     if (reussi) {
       g.respect = (g.respect || 0) + 2;
@@ -121,6 +126,7 @@
       });
       if (g.say) g.say('✉ Tu as rempli le formulaire de « netsec-interleur.bi ». −10 respect. Lis le mail de MURMURE.', 'err');
     }
+    return true;
   }
 
   /* ------------------------------------------------ boucle de monde */
@@ -132,10 +138,17 @@
     if (!b.welcomed) { b.welcomed = true; mailBienvenue(); }
 
     setInterval(() => {
+      // restore() remplace l'objet mail : ne pas conserver une référence vers
+      // l'ancienne boîte, sinon les échéances et le phishing se désynchronisent.
+      const courant = game();
+      if (!courant) return;
+      const boiteCourante = boite();
+      if (!boiteCourante.welcomed) { boiteCourante.welcomed = true; mailBienvenue(); }
       /* phishing : déclenché à l'entrée APPRENTI, une seule fois */
-      if (!b.phish && global.LabyProfile && global.LabyProfile.rank() >= 2) mailPhish();
+      if (!boiteCourante.phish && global.LabyProfile && global.LabyProfile.rank() >= 2) mailPhish();
       /* expiration : ignorer le mail pendant 4 h monde = réussite */
-      if (b.phish && b.phish.statut === 'envoye' && (g.worldMin || 0) >= b.phish.creeA + 240) debriefPhish(true);
+      if (boiteCourante.phish && boiteCourante.phish.statut === 'envoye' &&
+          (courant.worldMin || 0) >= boiteCourante.phish.creeA + 240) debriefPhish(true);
       peindreBadge();
     }, 1500);
   }
@@ -200,8 +213,8 @@
   }
 
   function actionPhish() {
-    // confirmation d'identifiants = toujours l'échec (c'est un exercice !)
-    debriefPhish(false);
+    // confirmation d'identifiants = échec, une seule fois (c'est un exercice !)
+    if (!debriefPhish(false)) return;
     const r = $('mlRead');
     if (r) {
       r.appendChild(el('div', 'web-sep'));
@@ -219,7 +232,11 @@
     for (const a of m.actions || []) {
       const b = el('button', 'web-btn', a.label);
       if (a.kind === 'tableau') b.onclick = () => { $('mail').classList.remove('open'); const c = $('btnContracts'); if (c) c.click(); };
-      if (a.kind === 'phish-confirm') b.onclick = actionPhish;
+      if (a.kind === 'phish-confirm') {
+        b.dataset.phishConfirm = 'true';
+        b.disabled = !boite().phish || boite().phish.statut !== 'envoye';
+        b.onclick = actionPhish;
+      }
       r.appendChild(b);
     }
     if (m.kind === 'phish' && boite().phish && boite().phish.statut !== 'envoye') {

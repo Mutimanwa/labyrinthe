@@ -208,8 +208,35 @@ console.log('total:', corps.total);`,
   };
 
   // -------------------------------------------------- les contrats
-  const ran = (ev, file) => ev.filter(e => e.type === 'jsrun' && new RegExp(file).test(e.path || ''));
+  const ran = (ev, file) => ev.filter(e => e.type === 'jsrun' && new RegExp('/' + file + '\\.[jt]sx?$').test(e.path || ''));
   const lastRun = (ev, file) => { const r = ran(ev, file); return r[r.length - 1]; };
+  function matchingCall(run, path, method, status) {
+    return (run && run.calls || []).find(c => {
+      try { return new URL(c.url).pathname === path && c.method === method && c.status === status; }
+      catch (_) { return false; }
+    });
+  }
+  function totalDisplayed(run, label) {
+    const call = matchingCall(run, '/api/users', 'GET', 200);
+    const prefix = label ? label + '\\s*:\\s*' : '(^|[^0-9])';
+    return !!(call && Number.isInteger(call.total) &&
+      new RegExp(prefix + call.total + '([^0-9]|$)', 'i').test(run.output || ''));
+  }
+  function createdIdDisplayed(run) {
+    const call = matchingCall(run, '/api/users', 'POST', 201);
+    return !!(call && Number.isInteger(call.createdId) &&
+      new RegExp('(^|[^0-9])' + call.createdId + '([^0-9]|$)').test(run.output || ''));
+  }
+  function usersRendered(run) {
+    const call = matchingCall(run, '/api/users', 'GET', 200);
+    if (!call || !Array.isArray(call.names) || !call.names.length) return false;
+    const output = run.output || '';
+    const rows = output.match(/<li(?:\s[^>]*)?>[\s\S]*?<\/li>/g) || [];
+    const escape = name => String(name).replace(/&/g, '&amp;').replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    return /<ul(?:\s[^>]*)?>/.test(output) && rows.length >= call.names.length &&
+      call.names.every(name => rows.some(row => row.includes(escape(name))));
+  }
 
   const WEB_MISSIONS = [
     {
@@ -219,7 +246,7 @@ console.log('total:', corps.total);`,
       objectives: [
         { label: 'Serveur API découvert', done: (w) => w.node('apiLab').discovered },
         { label: 'Documentation de l’API lue', done: (w, sh, ev) => ev.some(e => e.type === 'read' && (e.paths || []).some(p => /API\.md/.test(p))) },
-        { label: 'health.ts exécuté et affichant « ok »', done: (w, sh, ev) => { const r = lastRun(ev, 'health'); return !!(r && r.ok && /\bok\b/.test(r.output || '')); } }
+        { label: 'health.ts exécuté et affichant « ok »', done: (w, sh, ev) => { const r = lastRun(ev, 'health'); return !!(r && r.ok && /\bok\b/.test(r.output || '') && matchingCall(r, '/api/health', 'GET', 200)); } }
       ],
       brief: `OBJECTIF
   Écris le premier appel réseau de l'application.
@@ -238,9 +265,13 @@ Ton code doit afficher : ok
 Le fetch est RÉELLEMENT exécuté contre l'API du serveur.`,
       validate(w, sh, ev) {
         const r = lastRun(ev, 'health');
-        const ok = !!(r && r.ok && /\bok\b/.test(r.output || '') &&
-          (r.calls || []).some(c => /\/api\/health/.test(c.url)));
-        return { done: ok, hint: ok ? '' : 'Complète src/lib/health.ts puis : npx tsx src/lib/health.ts' };
+        const docs = ev.some(e => e.type === 'read' && (e.paths || []).some(p => /API\.md$/.test(p)));
+        const ok = !!(w.node('apiLab').discovered && docs && r && r.ok &&
+          /\bok\b/.test(r.output || '') && matchingCall(r, '/api/health', 'GET', 200));
+        const hint = !w.node('apiLab').discovered ? 'Découvre le serveur API depuis ACADEMIE avec nmap.'
+          : !docs ? 'Lis la documentation : cat /home/joueur/projet/API.md'
+          : 'Complète src/lib/health.ts puis : npx tsx src/lib/health.ts';
+        return { done: ok, hint: ok ? '' : hint };
       },
       debrief: `Tu as fait le geste de base de toute application web : appeler
 une API et lire sa réponse.
@@ -255,9 +286,9 @@ Trois choses à retenir :
       client: 'Académie · équipe produit', reward: 600, difficulty: 3, kind: 'Jeton Bearer',
       cours: null, needsAnswer: false,
       objectives: [
-        { label: 'POST /api/auth/login réussi', done: (w, sh, ev) => { const r = lastRun(ev, 'users'); return !!(r && (r.calls || []).some(c => /auth\/login/.test(c.url) && c.method === 'POST')); } },
+        { label: 'POST /api/auth/login réussi', done: (w, sh, ev) => !!matchingCall(lastRun(ev, 'users'), '/api/auth/login', 'POST', 200) },
         { label: 'GET /api/users avec un jeton', done: (w, sh, ev) => { const r = lastRun(ev, 'users'); return !!(r && r.authedUsers); } },
-        { label: 'Le nombre d’utilisateurs est affiché', done: (w, sh, ev) => { const r = lastRun(ev, 'users'); return !!(r && r.ok && /\b5\b/.test(r.output || '')); } }
+        { label: 'Le nombre d’utilisateurs est affiché', done: (w, sh, ev) => { const r = lastRun(ev, 'users'); return !!(r && r.ok && totalDisplayed(r)); } }
       ],
       brief: `OBJECTIF
   L'API refuse les requêtes anonymes (401). Authentifie-toi.
@@ -276,7 +307,8 @@ Ton code doit :
 C'est le schéma d'authentification le plus répandu du web.`,
       validate(w, sh, ev) {
         const r = lastRun(ev, 'users');
-        const ok = !!(r && r.ok && r.authedUsers && /\b5\b/.test(r.output || ''));
+        const ok = !!(r && r.ok && r.authedUsers &&
+          matchingCall(r, '/api/auth/login', 'POST', 200) && totalDisplayed(r));
         return { done: ok, hint: ok ? '' : 'Login POST → token → GET /api/users avec l’en-tête Authorization' };
       },
       debrief: `Le schéma complet :
@@ -293,7 +325,7 @@ Les confondre est l'erreur de débutant la plus courante.`
       cours: null, needsAnswer: false,
       objectives: [
         { label: 'Le code ne plante pas sur un 403', done: (w, sh, ev) => { const r = lastRun(ev, 'admin'); return !!(r && r.ok); } },
-        { label: 'Le statut 403 est détecté et affiché', done: (w, sh, ev) => { const r = lastRun(ev, 'admin'); return !!(r && /403/.test(r.output || '')); } }
+        { label: 'Le statut 403 est détecté et affiché', done: (w, sh, ev) => { const r = lastRun(ev, 'admin'); return !!(r && /403/.test(r.output || '') && matchingCall(r, '/api/admin/stats', 'GET', 403)); } }
       ],
       brief: `OBJECTIF
   Appelle /api/admin/stats avec un jeton de compte USER.
@@ -308,7 +340,8 @@ Le piège : lire r.json().data alors que la réponse est une erreur
 provoque un TypeError. Vérifie r.ok AVANT de lire les données.`,
       validate(w, sh, ev) {
         const r = lastRun(ev, 'admin');
-        const ok = !!(r && r.ok && /403/.test(r.output || ''));
+        const ok = !!(r && r.ok && /403/.test(r.output || '') &&
+          matchingCall(r, '/api/admin/stats', 'GET', 403));
         return { done: ok, hint: ok ? '' : 'Teste r.ok (ou r.status) avant de lire le corps, et affiche 403' };
       },
       debrief: `Une API bien élevée renvoie une erreur STRUCTURÉE.
@@ -329,7 +362,7 @@ En production, c'est cette discipline qui évite l'écran blanc.`
       cours: null, needsAnswer: false,
       objectives: [
         { label: 'POST /api/users émis', done: (w, sh, ev) => { const r = lastRun(ev, 'create'); return !!(r && (r.calls || []).some(c => /\/api\/users/.test(c.url) && c.method === 'POST')); } },
-        { label: 'Le serveur a répondu 201', done: (w, sh, ev) => { const r = lastRun(ev, 'create'); return !!(r && /201/.test(r.output || '')); } },
+        { label: 'Le serveur a répondu 201', done: (w, sh, ev) => !!matchingCall(lastRun(ev, 'create'), '/api/users', 'POST', 201) },
         { label: 'L’utilisateur existe vraiment côté serveur', done: (w, sh, ev) => { const r = lastRun(ev, 'create'); return !!(r && r.created); } }
       ],
       brief: `OBJECTIF
@@ -349,7 +382,8 @@ Puis afficher le statut (201) et l'id renvoyé.
 201 Created est le code correct pour une création — pas 200.`,
       validate(w, sh, ev) {
         const r = lastRun(ev, 'create');
-        const ok = !!(r && r.ok && /201/.test(r.output || '') && r.created);
+        const ok = !!(r && r.ok && /\b201\b/.test(r.output || '') && r.created &&
+          matchingCall(r, '/api/users', 'POST', 201) && createdIdDisplayed(r));
         return { done: ok, hint: ok ? '' : 'POST avec Content-Type et JSON.stringify, puis affiche 201 et l’id' };
       },
       debrief: `Les codes HTTP ne sont pas décoratifs :
@@ -366,8 +400,8 @@ Savoir les distinguer, c'est savoir dialoguer avec n'importe quelle API.`
       cours: null, needsAnswer: false,
       objectives: [
         { label: 'Données chargées depuis l’API', done: (w, sh, ev) => { const r = lastRun(ev, 'UserList'); return !!(r && r.authedUsers); } },
-        { label: 'Un <ul> est produit', done: (w, sh, ev) => { const r = lastRun(ev, 'UserList'); return !!(r && /<ul>/.test(r.output || '')); } },
-        { label: 'Les 5 utilisateurs sont rendus en <li>', done: (w, sh, ev) => { const r = lastRun(ev, 'UserList'); return !!(r && (r.output.match(/<li>/g) || []).length >= 5); } }
+        { label: 'Un <ul> est produit', done: (w, sh, ev) => { const r = lastRun(ev, 'UserList'); return !!(r && /<ul(?:\s[^>]*)?>/.test(r.output || '')); } },
+        { label: 'Les utilisateurs chargés sont rendus en <li>', done: (w, sh, ev) => usersRendered(lastRun(ev, 'UserList')) }
       ],
       brief: `OBJECTIF
   Écris un composant React qui affiche les utilisateurs de l'API.
@@ -381,11 +415,10 @@ utilise React.createElement.
   React.createElement('li', { key: u.id }, u.name)
   React.createElement('ul', null, liste.map(...))
 
-Attendu : <ul><li>Aline Nkurunziza</li>…</ul> avec 5 <li>.`,
+Attendu : un <ul> avec un <li> par utilisateur retourné par l’API.`,
       validate(w, sh, ev) {
         const r = lastRun(ev, 'UserList');
-        const ok = !!(r && r.ok && /<ul>/.test(r.output || '') &&
-          (r.output.match(/<li>/g) || []).length >= 5 && /Aline/.test(r.output));
+        const ok = !!(r && r.ok && r.authedUsers && usersRendered(r));
         return { done: ok, hint: ok ? '' : 'Charge les utilisateurs, rends un <ul> de <li> et affiche le HTML' };
       },
       debrief: `Un composant n'est qu'une fonction : données → éléments.
@@ -408,7 +441,7 @@ se fait côté serveur, et le HTML arrive déjà rempli.`
       objectives: [
         { label: 'Requête sans jeton → 401', done: (w, sh, ev) => { const r = lastRun(ev, 'route'); return !!(r && /sans jeton:\s*401/.test(r.output || '')); } },
         { label: 'Requête avec jeton → 200', done: (w, sh, ev) => { const r = lastRun(ev, 'route'); return !!(r && /avec jeton:\s*200/.test(r.output || '')); } },
-        { label: 'Les données remontent jusqu’au client', done: (w, sh, ev) => { const r = lastRun(ev, 'route'); return !!(r && /total:\s*([5-9]|\d{2,})/.test(r.output || '')); } }
+        { label: 'Les données remontent jusqu’au client', done: (w, sh, ev) => totalDisplayed(lastRun(ev, 'route'), 'total') }
       ],
       brief: `OBJECTIF — le contrat final
   Écris le Route Handler src/app/api/users/route.ts.
@@ -430,8 +463,8 @@ Le harnais teste les deux cas et affiche :
 C'est exactement un fichier route.ts de Next.js App Router.`,
       validate(w, sh, ev) {
         const r = lastRun(ev, 'route');
-        const ok = !!(r && r.ok && /sans jeton:\s*401/.test(r.output || '') &&
-          /avec jeton:\s*200/.test(r.output || '') && /total:\s*([5-9]|\d{2,})/.test(r.output || ''));
+        const ok = !!(r && r.ok && r.authedUsers && /sans jeton:\s*401/.test(r.output || '') &&
+          /avec jeton:\s*200/.test(r.output || '') && totalDisplayed(r, 'total'));
         return { done: ok, hint: ok ? '' : 'GET doit renvoyer 401 sans en-tête, 200 avec, et relayer le JSON' };
       },
       debrief: `Tu viens d'écrire un backend.
@@ -470,8 +503,9 @@ Ton serveur ne fait jamais confiance au client : il vérifie, puis
       const before = api.users.length;
       const res = await global.JsRun.run(f.content, api, { apiBase: 'http://10.10.5.10:3000' });
       // Ce que le code a réellement accompli, pour les validateurs.
-      const authedUsers = api.calls.some(c => /\/api\/users/.test(c.path) &&
-        (c.headers.authorization || '').startsWith('Bearer ') && c.method === 'GET');
+      // Seuls les appels de cette exécution, et leur vrai statut simulé,
+      // comptent. Un ancien appel ou un jeton invalide ne valide pas la mission.
+      const authedUsers = !!matchingCall(res, '/api/users', 'GET', 200);
       const created = api.users.length > before;
       game.record('jsrun', {
         path: p, ok: res.ok, output: res.output, error: res.error || null,

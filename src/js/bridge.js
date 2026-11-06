@@ -32,6 +32,13 @@
       catch (e) { console.warn('save_read:', e); return null; }
     },
 
+    /** Supprime un slot SQLite ; false signale une erreur ou l'édition web. */
+    async saveDelete(slot) {
+      if (!TAURI) return false;
+      try { await invoke('save_delete', { slot }); return true; }
+      catch (e) { console.warn('save_delete:', e); return false; }
+    },
+
     /** Liste des slots existants (triés du plus récent au plus ancien). */
     async saveList() {
       if (!TAURI) return [];
@@ -39,11 +46,23 @@
       catch (e) { console.warn('save_list:', e); return []; }
     },
 
-    /** Charge un pack de contenu data-driven (missions, sites, threads…). */
+    /** Charge un pack depuis le monofichier, les ressources Tauri ou le web. */
     async contentLoad(pack) {
-      if (!TAURI) return false;
-      try { return await invoke('content_load', { pack }); }
-      catch (e) { console.warn('content_load:', e); return false; }
+      if (typeof pack !== 'string' || !pack || pack.startsWith('/') ||
+          pack.includes('\\') || pack.split('/').some(p => !p || p === '.' || p === '..')) {
+        console.warn('content_load: chemin invalide');
+        return false;
+      }
+      try {
+        const embedded = global.__LABY_CONTENT__;
+        if (embedded && Object.prototype.hasOwnProperty.call(embedded, pack)) return embedded[pack];
+        if (TAURI) return await invoke('content_load', { pack });
+        const response = await fetch('content/' + pack);
+        return response.ok ? await response.text() : false;
+      } catch (e) {
+        console.warn('content_load:', e);
+        return false;
+      }
     },
 
     async version() {

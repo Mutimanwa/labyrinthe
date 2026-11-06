@@ -1,5 +1,4 @@
-<title>LABYRINTHE</title>
-<style>/* =====================================================================
+/* =====================================================================
    LABYRINTHE — langage visuel Hacknet
    Multi-panneaux simultanés, angles droits, bordures 1px, densité maximale.
    Le thème est injecté en variables CSS par la machine courante.
@@ -70,6 +69,20 @@ body.swap #colRight{order:-1}
 .rambar i{display:block;height:100%;background:var(--accent);transition:width .25s}
 .rambar.hot i{background:var(--hot)}
 .ramprocs{font-size:9px;color:var(--dim);margin-top:3px;text-align:right}
+
+/* ============================ GUIDE INITIAL ============================ */
+#panelTutorial{flex-shrink:0;border-left:2px solid var(--accent)}
+#panelTutorial[hidden]{display:none}
+.tutorial-body{padding:9px 8px;overflow-wrap:anywhere}
+.tutorial-title{color:var(--accent);font-weight:700;margin-bottom:5px;font-size:11px}
+.tutorial-body p{margin-bottom:7px;line-height:1.45}
+.tutorial-command{display:block;background:var(--bg);border:1px solid var(--line);padding:6px;color:var(--accent);white-space:pre-wrap;margin-bottom:6px}
+.tutorial-command:empty{display:none}
+.tutorial-hint{color:var(--dim);font-size:9.5px}
+.tutorial-actions{display:flex;gap:5px;flex-wrap:wrap}
+.tutorial-actions button{background:var(--bg);border:1px solid var(--dim);color:var(--txt);font:inherit;font-size:9px;letter-spacing:.5px;padding:3px 6px;cursor:pointer}
+.tutorial-actions button:hover,.tutorial-actions button:focus-visible{background:var(--accent);color:var(--bg)}
+.tutorial-actions button[hidden]{display:none}
 
 /* ============================ PROCESSUS ============================ */
 #procStack{flex-shrink:0;display:flex;flex-direction:column;gap:1px;max-height:46%;overflow-y:auto}

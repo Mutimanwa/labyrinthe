@@ -45,6 +45,28 @@
     this.posts = JSON.parse(JSON.stringify(POSTS));
     this.calls = [];
     this.nextId = 6;
+    this.requireAuth = true;
+  };
+
+  // Les ressources créées par le joueur font partie du monde sauvegardé.
+  // Le journal de requêtes, lui, reste temporaire et ne contient pas de jetons
+  // dans la sauvegarde.
+  ApiServer.prototype.snapshot = function () {
+    return {
+      users: this.users,
+      posts: this.posts,
+      nextId: this.nextId,
+      requireAuth: this.requireAuth
+    };
+  };
+  ApiServer.prototype.restore = function (data) {
+    if (!data || !Array.isArray(data.users) || !Array.isArray(data.posts)) return;
+    this.users = JSON.parse(JSON.stringify(data.users));
+    this.posts = JSON.parse(JSON.stringify(data.posts));
+    const minimum = this.users.reduce((max, user) => Math.max(max, Number(user.id) || 0), 0) + 1;
+    this.nextId = Math.max(minimum, Number(data.nextId) || 1);
+    this.requireAuth = data.requireAuth !== false;
+    this.calls = [];
   };
 
   // Réponse HTTP : status, headers, body JSON.
@@ -100,6 +122,8 @@
       if (!email || !password) return reply(400, { error: 'email et password requis' });
       if (CREDS[email] !== password) return reply(401, { error: 'identifiants invalides' });
       const user = this.users.find(x => x.email === email);
+      // Le compte a pu être supprimé par une requête DELETE depuis le jeu.
+      if (!user) return reply(401, { error: 'identifiants invalides' });
       const tok = user.role === 'admin' ? 'admin-token-2026' : 'dev-token-2026';
       return reply(200, { token: tok, user: { id: user.id, name: user.name, role: user.role } });
     }
@@ -120,7 +144,12 @@
 
     if (path === '/api/users' && method === 'POST') {
       if (!session) return reply(401, { error: 'authentification requise' });
-      if (!body || !body.name || !body.email) return reply(400, { error: 'name et email requis' });
+      if (!body || Array.isArray(body) || typeof body.name !== 'string' || !body.name.trim() ||
+          typeof body.email !== 'string' || !body.email.trim() ||
+          (body.role != null && typeof body.role !== 'string') ||
+          (body.city != null && typeof body.city !== 'string')) {
+        return reply(400, { error: 'name et email requis ; role et city doivent être des chaînes' });
+      }
       if (this.users.some(x => x.email === body.email)) return reply(409, { error: 'email déjà utilisé' });
       const user = {
         id: this.nextId++, name: body.name, email: body.email,

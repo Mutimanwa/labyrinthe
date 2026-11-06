@@ -25,7 +25,7 @@
     { nom: 'APPRENTI',              xp: 1200,  note: 'débloque NetSec-Intérieur (couche 3)' },
     { nom: 'OPÉRATEUR',             xp: 3000,  note: 'débloque le Puits (couche 4, M4)' },
     { nom: 'PENTESTEUR',            xp: 6000,  note: 'GARDIEN lit tes rapports' },
-    { nom: 'MAÎTRE DU LABYRINTHE',  xp: 10000, note: 'exige la campagne terminée', fin: true }
+    { nom: 'MAÎTRE DU LABYRINTHE',  xp: 8000, note: 'exige la campagne terminée', fin: true }
   ];
 
   function game() { return global.LABYRINTHE && global.LABYRINTHE.game; }
@@ -71,7 +71,7 @@
     g.say(`  ${RANGS[apres].note}`, 'dim');
     if (apres === 1) g.say('  Apprends, ne recopie plus. Le forum lit ton rang.', 'dim');
     if (apres === 2) g.say('  NetSec-Intérieur te répond désormais : netsec-interieur.bi dans le navigateur.', 'dim');
-    if (apres === 3) g.say('  Le chenillard du Puits existe. Il t\'attend. (M4)', 'dim');
+    if (apres === 3) g.say('  Le chenillard du Puits t\'attend : tape relais pour commencer.', 'dim');
   }
 
   function surEvenement(ev) {
@@ -96,7 +96,7 @@
     const origRecord = g.record.bind(g);
     g.record = function (type, data) {
       origRecord(type, data);
-      try { surEvenement(Object.assign({ type }, data || {})); } catch (e) { console.warn('[profil]', e); }
+      try { surEvenement(Object.assign({}, data || {}, { type })); } catch (e) { console.warn('[profil]', e); }
     };
   }
 
