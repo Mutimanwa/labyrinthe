@@ -1,0 +1,54 @@
+{
+  "domain": "collines.bi",
+  "title": "Collines — le réseau des vraies gens",
+  "acl": { "layer": 2 },
+  "fouine": {
+    "tags": ["réseau social", "profils", "photos", "communauté", "amis"],
+    "excerpt": "Partage ta vie avec les collines. Profils publics par défaut (lis le réglage confidentialité, personne ne le fait)."
+  },
+  "whois": {
+    "domain": "collines.bi",
+    "registrar": "NIC-BI (registre fictif)",
+    "created": "2018-04-02",
+    "expires": "2028-04-02",
+    "registrant": "Collines Inc.",
+    "admin": "dpo@collines.bi",
+    "ns": ["ns1.collines.bi", "ns2.collines.bi"]
+  },
+  "pages": {
+    "/": {
+      "title": "Accueil",
+      "blocks": [
+        { "t": "h", "x": "COLLINES" },
+        { "t": "p", "x": "Le réseau des vraies gens. Partage ta vie — nous, on l'indexe." },
+        { "t": "h2", "x": "Profils à la une" },
+        { "t": "link", "x": "colline_14 — « admin sys, Mwaro »", "href": "collines.bi/u/colline_14" },
+        { "t": "link", "x": "mur_0 — je scanne donc je suis", "href": "collines.bi/u/mur_0" },
+        { "t": "p", "x": "Rappel : tout ce qui est public est public. Fouine lit aussi." }
+      ]
+    },
+    "/u/colline_14": {
+      "title": "colline_14",
+      "blocks": [
+        { "t": "h", "x": "colline_14" },
+        { "t": "p", "x": "Jérémie N. — Mwaro. Sysadmin @ Kabave SARL (kabave.bi). CollinCMS est mon jardin, j'y passe mes nuits." },
+        { "t": "h2", "x": "Publications publiques" },
+        { "t": "list", "x": [
+          "« Rush, 4 ans demain. Le meilleur chien des collines. » — 11 mars",
+          "« Qui mettrait admin123 sur un webmail ? Pas moi en tout cas lol »",
+          "« Migration CollinCMS reportée encore. Le boss veut le catalogue en ligne AVANT. »"
+        ] },
+        { "t": "link", "x": "← Collines", "href": "collines.bi/" }
+      ]
+    },
+    "/u/mur_0": {
+      "title": "mur_0",
+      "blocks": [
+        { "t": "h", "x": "mur_0" },
+        { "t": "p", "x": "Sécurité, écriture, silence. Ne me demande pas de scanner ton voisin." },
+        { "t": "p", "x": "« Le bruit est une signature. Soigne la tienne. »" },
+        { "t": "link", "x": "← Collines", "href": "collines.bi/" }
+      ]
+    }
+  }
+}

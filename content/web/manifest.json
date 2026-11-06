@@ -1,0 +1,18 @@
+{
+  "version": 2,
+  "commentaire": "Registre du web intérieur (couche 2 = 11 sites + teaser couche 3). Ajouter un site = écrire sa fiche + l'ajouter ici. noindex:true = hors Fouine.",
+  "sites": [
+    "fouine.bi.json",
+    "nic.bi.json",
+    "manpages.bi.json",
+    "coop-iteka.bi.json",
+    "kabave.bi.json",
+    "collines.bi.json",
+    "colle.bi.json",
+    "banque-horizon.bi.json",
+    "hostbi.bi.json",
+    "umuco-net.bi.json",
+    "zerotrace.bi.json",
+    "netsec-interieur.bi.json"
+  ]
+}

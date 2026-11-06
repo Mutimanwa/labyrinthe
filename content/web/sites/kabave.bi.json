@@ -1,0 +1,44 @@
+{
+  "domain": "kabave.bi",
+  "title": "Kabave SARL",
+  "acl": { "layer": 2 },
+  "fouine": {
+    "tags": ["kabave", "vente", "matériel", "mwaro", "sarl", "catalogue", "informatique"],
+    "excerpt": "Kabave SARL — matériel agricole et informatique, Mwaro. Catalogue en ligne bientôt."
+  },
+  "whois": {
+    "domain": "kabave.bi",
+    "registrar": "NIC-BI (registre fictif)",
+    "created": "2020-02-10",
+    "expires": "2027-02-10",
+    "registrant": "Kabave SARL, Mwaro",
+    "admin": "j.nizigama@kabave.bi",
+    "ns": ["ns1.hostbi.bi"]
+  },
+  "pages": {
+    "/": {
+      "title": "Accueil",
+      "blocks": [
+        { "t": "h", "x": "Kabave SARL" },
+        { "t": "p", "x": "Matériel agricole et informatique depuis 2012. Mwaro centre-ville, derrière le marché." },
+        { "t": "link", "x": "Notre équipe", "href": "kabave.bi/equipe" },
+        { "t": "p", "x": "Catalogue en ligne : très bientôt. (On y travaille. On y travaille encore.)" },
+        { "t": "p", "x": "Propulsé par CollinCMS 5.2." }
+      ]
+    },
+    "/equipe": {
+      "title": "Équipe",
+      "blocks": [
+        { "t": "h", "x": "L'équipe" },
+        { "t": "table", "rows": [
+          ["Nom", "Rôle"],
+          ["D. Kabave", "Direction"],
+          ["Jérémie Nizigama", "Informatique & site"],
+          ["A. Keza", "Ventes & catalogue"]
+        ] },
+        { "t": "p", "x": "Contact : info@kabave.bi — pour le site, voir le registre (whois), notre informaticien y veille." },
+        { "t": "link", "x": "← Accueil", "href": "kabave.bi/" }
+      ]
+    }
+  }
+}

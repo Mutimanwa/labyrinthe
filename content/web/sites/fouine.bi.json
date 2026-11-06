@@ -1,0 +1,27 @@
+{
+  "domain": "fouine.bi",
+  "title": "Fouine",
+  "acl": { "layer": 2 },
+  "fouine": { "tags": ["moteur", "recherche", "web", "index"], "excerpt": "Le moteur du web intérieur." },
+  "whois": {
+    "domain": "fouine.bi",
+    "registrar": "NIC-BI (registre fictif)",
+    "created": "2015-06-01",
+    "expires": "2030-06-01",
+    "registrant": "Fouine SARL, Bujumbura",
+    "admin": "noc@fouine.bi",
+    "ns": ["ns1.fouine.bi", "ns2.fouine.bi"]
+  },
+  "pages": {
+    "/": {
+      "title": "Fouine",
+      "blocks": [
+        { "t": "h", "x": "FOUINE" },
+        { "t": "p", "x": "Le moteur du web intérieur. Un nom, un mot, un message d'erreur — tout se retrouve." },
+        { "t": "search" },
+        { "t": "sep" },
+        { "t": "p", "x": "Astuce du jour : les mentions légales, les « à propos » et les pieds de page racontent toujours quelque chose." }
+      ]
+    }
+  }
+}

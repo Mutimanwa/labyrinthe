@@ -1,0 +1,79 @@
+{
+  "version": 1,
+  "commentaire": "Fils permanents de NetSec-Intérieur (culture du lieu). Les fils des joueurs vivent dans la save (game.forum), pas ici.",
+  "threads": [
+    {
+      "id": "t1",
+      "titre": "nmap affiche « ospf-lite » sur le port 8899 ??",
+      "auteur": "anon_7",
+      "statut": "resolu",
+      "il_y_a": "il y a 3 semaines",
+      "posts": [
+        { "qui": "anon_7", "txt": "Un routage sur un port bizarre, je comprends rien. Scan d'un node de l'academie, port 8899 ouvert, nmap dit ospf-lite." },
+        { "qui": "mur_0", "txt": "Sans -sV, la colonne SERVICE est devinée d'après le numéro dans nmap-services. Relis 'help nmap'. Ajoute -sV et tu verras le vrai service qui écoute." },
+        { "qui": "anon_7", "txt": "C'était exactement ça. C'est un rchat. Merci." },
+        { "qui": "mur_0", "txt": "Marque RÉSOLU la prochaine fois. La mémoire du forum nourrit les suivants." }
+      ]
+    },
+    {
+      "id": "t2",
+      "titre": "hydra trop lent → j'ai mis -t 64 et tout a explosé",
+      "auteur": "kage_busa",
+      "statut": "ouvert",
+      "il_y_a": "il y a 2 semaines",
+      "posts": [
+        { "qui": "kage_busa", "txt": "Titre. 30 secondes après, banni du segment + convocation écrite du client. Je fais quoi ?" },
+        { "qui": "Tautologue", "txt": "Tu apprends la leçon : le parallélisme est du bruit au carré. -t 4 patient bat -t 64 banni. Et rouvre un contrat avec périmètre écrit, cette fois." },
+        { "qui": "anon_7", "txt": "Pareil la semaine dernière. La file d'auth.log du client tenait sur 9 écrans. Ils m'ont PAYÉ pour les lire ensuite, l'ironie." }
+      ]
+    },
+    {
+      "id": "t3",
+      "titre": "J'ai effacé TOUS les logs, le client a refusé de payer",
+      "auteur": "gratte_ciel",
+      "statut": "resolu",
+      "il_y_a": "il y a 1 semaine",
+      "posts": [
+        { "qui": "gratte_ciel", "txt": "Contrat exfiltration fait, preuve prise, logs vidés proprement (enfin je croyais). Le client : « mes journaux ont un trou de 4 h, tu n'as pas de preuve de méthode, pas de paie »." },
+        { "qui": "MURMURE", "txt": "Règle ici : copie la preuve AVANT de toucher aux logs, et touche les lignes qui te nomment, pas le fichier entier. Un trou dans le temps est un aveu. Relis le module 14." },
+        { "qui": "gratte_ciel", "txt": "Compris. J'ai refait le contrat proprement. Payé cette fois. Marqué RÉSOLU." }
+      ]
+    },
+    {
+      "id": "t4",
+      "titre": "fouine ne trouve RIEN sur ma cible, web mort ?",
+      "auteur": "nouveau_venu",
+      "statut": "ouvert",
+      "il_y_a": "il y a 6 jours",
+      "posts": [
+        { "qui": "nouveau_venu", "txt": "Ma cible a un site, fouine ne le sort pas. Le moteur est cassé ou quoi ?" },
+        { "qui": "mur_0", "txt": "Fouine indexe le texte des pages, pas seulement les noms de domaine. Cherche ce qu'ils VENDENT, leur ville, leur CMS. Et certains sites demandent à ne pas être indexés — whois ne demande jamais la permission, lui." },
+        { "qui": "Tautologue", "txt": "+ la lecture des registres ne compte pas comme du bruit. Personne ne t'a jamais vu lire un bottin." }
+      ]
+    },
+    {
+      "id": "t5",
+      "titre": "[récit] mon premier root, proprement, sans rien casser",
+      "auteur": "colline_fan",
+      "statut": "ouvert",
+      "il_y_a": "il y a 2 jours",
+      "posts": [
+        { "qui": "colline_fan", "txt": "OSINT 2 h → un paste oublié → dictionnaire 12 mots → session ssh → sudo -l → root. Bruit total : 4. J'ai pleuré un peu." },
+        { "qui": "MURMURE", "txt": "Voilà. Les meilleurs intrusions sont des lectures qui ont pris leur temps. Garde la méthode, écris le rapport, signe." },
+        { "qui": "mur_0", "txt": "Bruit total 4. Mon record est 3. La compétition est ouverte." }
+      ]
+    },
+    {
+      "id": "t6",
+      "titre": "rockyou.txt vs dictionnaire maison — pourquoi 14 Millions perdent",
+      "auteur": "Tautologue",
+      "statut": "epingle",
+      "il_y_a": "épinglé",
+      "posts": [
+        { "qui": "Tautologue", "txt": "Un humain tire son mot de passe de sa vie : animal, date, ville, équipe. 20 mots d'OSINT pondérés battent 14 M de mots génériques quand la cible est humaine. Fais ta liste AVANT hydra, pas pendant." },
+        { "qui": "mur_0", "txt": "Et si la liste vient d'un profil public, relis la section éthique : périmètre écrit toujours, même pour 'juste essayer'." },
+        { "qui": "kage_busa", "txt": "Ce fil + le paste #4465 = retenez-les par cœur." }
+      ]
+    }
+  ]
+}

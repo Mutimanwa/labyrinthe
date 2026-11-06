@@ -1,0 +1,50 @@
+{
+  "domain": "coop-iteka.bi",
+  "title": "Coopérative Iteka",
+  "acl": { "layer": 2 },
+  "fouine": {
+    "tags": ["coopérative", "iteka", "café", "thé", "gitega", "agriculture", "bug bounty"],
+    "excerpt": "Coopérative agricole de Gitega. Café et thé d'altitude. Programme bug bounty public."
+  },
+  "whois": {
+    "domain": "coop-iteka.bi",
+    "registrar": "NIC-BI (registre fictif)",
+    "created": "2019-03-12",
+    "expires": "2027-03-12",
+    "registrant": "Coopérative Iteka, Gitega",
+    "admin": "technique@coop-iteka.bi",
+    "ns": ["ns1.hostbi.bi", "ns2.hostbi.bi"]
+  },
+  "pages": {
+    "/": {
+      "title": "Accueil",
+      "blocks": [
+        { "t": "h", "x": "Coopérative Iteka" },
+        { "t": "p", "x": "Du cerisier à la tasse : café bourbon d'altitude, thé des collines de Gitega. 1 240 familles membres." },
+        { "t": "list", "x": ["Nos produits", "Commandes professionnelles", "Programme bug bounty (hall of fame bientôt)"] },
+        { "t": "link", "x": "À propos de la coopérative", "href": "coop-iteka.bi/apropos" },
+        { "t": "link", "x": "Mentions légales", "href": "coop-iteka.bi/legal" },
+        { "t": "sep" },
+        { "t": "p", "x": "© Coopérative Iteka — fièrement hébergée au Burundi." }
+      ]
+    },
+    "/apropos": {
+      "title": "À propos",
+      "blocks": [
+        { "t": "h", "x": "À propos" },
+        { "t": "p", "x": "Fondée en 2019 par quarante producteurs, Iteka regroupe aujourd'hui les collines entières autour de Gitega." },
+        { "t": "p", "x": "Ce site est propulsé par CollinCMS 5.2, maintenu avec amour par notre stagiaire devenu admin." },
+        { "t": "link", "x": "← Retour à l'accueil", "href": "coop-iteka.bi/" }
+      ]
+    },
+    "/legal": {
+      "title": "Mentions légales",
+      "blocks": [
+        { "t": "h", "x": "Mentions légales" },
+        { "t": "p", "x": "Contact général : contact@coop-iteka.bi" },
+        { "t": "p", "x": "Le programme bug bounty couvre ce site. Reconnaissance passive et tests déclarés uniquement ; toute perturbation du service exclut la récompense." },
+        { "t": "link", "x": "← Retour à l'accueil", "href": "coop-iteka.bi/" }
+      ]
+    }
+  }
+}

@@ -1,0 +1,32 @@
+{
+  "domain": "nic.bi",
+  "title": "NIC-BI — Registre national (fictif)",
+  "acl": { "layer": 2 },
+  "fouine": {
+    "tags": ["registre", "whois", "domaines", "dns", "nic"],
+    "excerpt": "Le registre des domaines du web intérieur. whois commence ici."
+  },
+  "whois": {
+    "domain": "nic.bi",
+    "registrar": "NIC-BI (registre fictif)",
+    "created": "2009-01-01",
+    "expires": "2099-01-01",
+    "registrant": "NIC-BI",
+    "admin": "hostmaster@nic.bi",
+    "ns": ["a.nic.bi", "b.nic.bi"]
+  },
+  "pages": {
+    "/": {
+      "title": "NIC-BI",
+      "blocks": [
+        { "t": "h", "x": "NIC-BI" },
+        { "t": "p", "x": "Registre national du web intérieur (organisme fictif — ça va de soi, mais on le dit)." },
+        { "t": "h2", "x": "Interroger un domaine" },
+        { "t": "code", "x": "whois <domaine>   # depuis ton terminal" },
+        { "t": "h2", "x": "Domaines remarquables enregistrés" },
+        { "t": "list", "x": ["fouine.bi", "manpages.bi", "coop-iteka.bi", "kabave.bi", "collines.bi", "colle.bi", "banque-horizon.bi", "hostbi.bi", "umuco-net.bi", "zerotrace.bi"] },
+        { "t": "p", "x": "Tout titulaire doit maintenir un contact admin valide. (Tout pirate le sait aussi.)" }
+      ]
+    }
+  }
+}

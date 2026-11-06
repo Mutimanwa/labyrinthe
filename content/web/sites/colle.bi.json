@@ -1,0 +1,55 @@
+{
+  "domain": "colle.bi",
+  "title": "Colle.bi — pastes publics",
+  "acl": { "layer": 2 },
+  "fouine": {
+    "tags": ["paste", "pastebin", "code", "snippets", "logs", "config"],
+    "excerpt": "Colle un texte, oublie-le. Tout le monde peut relire — tout le monde."
+  },
+  "whois": {
+    "domain": "colle.bi",
+    "registrar": "NIC-BI (registre fictif)",
+    "created": "2020-08-14",
+    "expires": "2028-08-14",
+    "registrant": "Colle SARL",
+    "admin": "abuse@colle.bi",
+    "ns": ["ns1.hostbi.bi"]
+  },
+  "pages": {
+    "/": {
+      "title": "Colle.bi",
+      "blocks": [
+        { "t": "h", "x": "Colle.bi" },
+        { "t": "p", "x": "Pastes publics, indexés par Fouine. 0 compte, 0 modération, 100 % relisibles." },
+        { "t": "h2", "x": "Pastes récents" },
+        { "t": "link", "x": "#4471 — « nginx conf kabave (NE PAS LAISSER ICI) »", "href": "colle.bi/4471" },
+        { "t": "link", "x": "#4468 — « script inventaire v2 » par mur_0", "href": "colle.bi/4468" },
+        { "t": "link", "x": "#4465 — « rockyou est trop gros, voilà pourquoi »", "href": "colle.bi/4465" }
+      ]
+    },
+    "/4471": {
+      "title": "Paste #4471",
+      "blocks": [
+        { "t": "h2", "x": "#4471 — par colline_14, il y a 6 jours" },
+        { "t": "code", "x": "# TODO retirer ce paste une fois fait !!\nserver_name kabave.bi;\n# reste à faire : migrer CollinCMS 5.2 -> 6.0 (corrige plein de failles)\n# et changer le mdp du webmail ENFIN (indice pour moi-même : le chien)\n# Rush a 4 ans le 12 mars, déjà ♥" },
+        { "t": "link", "x": "← Colle.bi", "href": "colle.bi/" }
+      ]
+    },
+    "/4468": {
+      "title": "Paste #4468",
+      "blocks": [
+        { "t": "h2", "x": "#4468 — par mur_0, il y a 2 semaines" },
+        { "t": "code", "x": "# inventaire des hotes d'un segment, propre et discret\nimport subprocess\n# passer par 'scan' du terminal est ENCORE mieux : il respecte le monde" },
+        { "t": "link", "x": "← Colle.bi", "href": "colle.bi/" }
+      ]
+    },
+    "/4465": {
+      "title": "Paste #4465",
+      "blocks": [
+        { "t": "h2", "x": "#4465 — par Tautologue, il y a 1 mois" },
+        { "t": "p", "x": "rockyou fait 14 millions d'entrées. Un humain choisit un mot de passe en 4 secondes, depuis sa vie : prénoms, dates, équipe, animal. Le dictionnaire sur mesure bat la brute, chaque fois que l'OSINT a été fait correctement." },
+        { "t": "link", "x": "← Colle.bi", "href": "colle.bi/" }
+      ]
+    }
+  }
+}

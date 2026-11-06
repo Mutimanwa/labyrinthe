@@ -1,0 +1,17 @@
+# Build Tauri / Rust
+src-tauri/target/
+src-tauri/gen/
+
+# Node
+node_modules/
+
+# Builds monofichier
+dist/
+
+# Données locales
+*.db
+*.db-journal
+
+# OS
+.DS_Store
+Thumbs.db

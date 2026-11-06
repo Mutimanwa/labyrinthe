@@ -1,0 +1,51 @@
+{
+  "domain": "banque-horizon.bi",
+  "title": "Banque Horizon",
+  "acl": { "layer": 2 },
+  "fouine": {
+    "tags": ["banque", "horizon", "comptes", "virements", "portail", "finances"],
+    "excerpt": "Banque Horizon — vos comptes, partout. Portail clients en ligne, sécurité notre priorité (sic)."
+  },
+  "whois": {
+    "domain": "banque-horizon.bi",
+    "registrar": "NIC-BI (registre fictif)",
+    "created": "2011-09-30",
+    "expires": "2031-09-30",
+    "registrant": "Banque Horizon SA",
+    "admin": "securite@banque-horizon.bi",
+    "ns": ["ns1.banque-horizon.bi", "ns2.banque-horizon.bi"]
+  },
+  "pages": {
+    "/": {
+      "title": "Accueil",
+      "blocks": [
+        { "t": "h", "x": "BANQUE HORIZON" },
+        { "t": "p", "x": "Vos comptes, partout. Notre portail clients est ouvert." },
+        { "t": "link", "x": "Portail clients", "href": "banque-horizon.bi/portail" },
+        { "t": "link", "x": "Divulgation responsable", "href": "banque-horizon.bi/securite" },
+        { "t": "p", "x": "Banque Horizon SA — membre du programme de confiance du web intérieur." }
+      ]
+    },
+    "/portail": {
+      "title": "Portail clients",
+      "blocks": [
+        { "t": "h", "x": "Portail clients" },
+        { "t": "form", "titre": "Espace client", "champs": ["numéro de client", "mot de passe"], "bouton": "Se connecter" },
+        { "t": "p", "x": "Ce portail stocke ses sessions côté client pour « votre confort ». (Phrase à relire à haute voix.)" }
+      ]
+    },
+    "/securite": {
+      "title": "Divulgation responsable",
+      "blocks": [
+        { "t": "h", "x": "Divulgation responsable" },
+        { "t": "p", "x": "Vous avez trouvé une vulnérabilité ? Écrivez à securite@banque-horizon.bi : rapport structuré (faille, preuve, impact, correctif) contre prime." },
+        { "t": "list", "x": [
+          "Périmètre : banque-horizon.bi uniquement",
+          "Interdit : verrous réels sur données clients, interruption de service",
+          "Un chercheur bruyant est un chercheur non payé"
+        ] },
+        { "t": "link", "x": "← Accueil", "href": "banque-horizon.bi/" }
+      ]
+    }
+  }
+}

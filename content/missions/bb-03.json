@@ -1,0 +1,25 @@
+{
+  "id": "bb-03",
+  "titre": "Base de données ouverte",
+  "phase": 3,
+  "type": "bug-bounty",
+  "giver": "MURMURE",
+  "layers": [2],
+  "brief": "Le Laboratoire CODE (10.10.2.10) expose un portail de connexion dont le code est vulnérable. Trouvez la faille, récupérez les identifiants admin, et produisez un rapport de pentest complet. Le bounty ne paie que si le rapport est validé : sans rapport, pas de récompense.\n\nÉTAPES SUGGÉRÉES\n  curl http://10.10.2.10/login.php          (repérer l'indice dans le HTML)\n  sqlmap -u \"http://10.10.2.10/login.php?id=1\" --dbs --batch\n  ssh admin@10.10.2.10                      (mot de passe découvert)\n  rapport bb-03                             (ouvrir le gabarit dans l'éditeur)\n  rapport soumettre bb-03                   (valider le rapport)\n",
+  "requires": ["nmap", "sqlmap", "ssh"],
+  "hints_forum": [
+    "Le commentaire dans le HTML de login.php dit tout.",
+    "sqlmap teste le paramètre ?id=1, pas seulement l'URL de base.",
+    "Une fois les identifiants trouvés, ssh est votre ami.",
+    "Le rapport doit décrire la faille, la preuve, l'impact et le correctif.",
+    "Sans 'rapport soumettre bb-03' validé, le bounty reste bloqué."
+  ],
+  "win": {
+    "events": [
+      { "type": "sqlmap", "target": "codeLab" }
+    ]
+  },
+  "report_template": ["vulnérabilité", "preuve", "impact", "correctif"],
+  "report_required": true,
+  "reward": { "credits": 900, "respect": 8, "xp": 200 }
+}

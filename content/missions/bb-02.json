@@ -1,0 +1,26 @@
+{
+  "id": "bb-02",
+  "titre": "La colline d'Iteka",
+  "phase": 1,
+  "type": "bug-bounty",
+  "giver": "MURMURE",
+  "layers": [2],
+  "brief": "Sur le Repaire, un certain « colline_14 » se vante d'administrer « le dernier CollinCMS inviolable du pays ». Kabave SARL, son employeur, a peur : leur catalogue en ligne part en production la semaine prochaine. Contrat déclaré : livre le vrai nom de colline_14 et son email professionnel — uniquement par reconnaissance passive. Si un seul paquet touche kabave.bi, le contrat est brûlé et ton nom aussi.",
+  "requires": ["fouine", "whois"],
+  "hints_forum": [
+    "Un pseudo n'est pas une personne. Une personne laisse un sillage de services.",
+    "Il a un chien. Il te l'a peut-être déjà dit, sans te connaître.",
+    "Le site de l'employeur liste son équipe. Le registre liste son admin."
+  ],
+  "win": {
+    "events": [
+      { "type": "fouine", "q": "colline_14" },
+      { "type": "visit", "target": "kabave.bi/equipe" },
+      { "type": "whois", "target": "kabave.bi" }
+    ],
+    "answer_format": "Prénom Nom <email> — attendu à la validation du contrat"
+  },
+  "report_template": ["cible", "chaîne OSINT (étapes)", "données obtenues", "impact si abusé", "correctifs recommandés"],
+  "reward": { "credits": 500, "respect": 7, "xp": 250 },
+  "lore": "Solution diégétique : Jérémie Nizigama <j.nizigama@kabave.bi> — profil collines.bi/u/colline_14 → équipe kabave.bi → registre. CollinCMS 5.2 + webmail mot de passe lié au chien : fil pour la phase 3."
+}

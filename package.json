@@ -1,0 +1,16 @@
+{
+  "name": "labyrinthe",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Simulation de hacking pédagogique — frontend statique + shell Tauri",
+  "scripts": {
+    "dev:web": "python3 -m http.server 8000 --directory src",
+    "tauri": "tauri",
+    "dev": "tauri dev",
+    "build": "tauri build",
+    "single": "python3 build-single.py"
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "^2"
+  }
+}

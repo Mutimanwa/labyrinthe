@@ -1,0 +1,5 @@
+{
+  "version": 1,
+  "commentaire": "Contrats data (carrière libre). Chaque fichier décrit un contrat valide par les événements du bus (game.record).",
+  "missions": ["bb-01.json", "bb-02.json", "bb-03.json"]
+}

@@ -1,0 +1,30 @@
+{
+  "domain": "umuco-net.bi",
+  "title": "UmucoNet — ton FAI",
+  "acl": { "layer": 2 },
+  "fouine": {
+    "tags": ["fai", "internet", "abonnement", "fibre", "umuco", "connexion"],
+    "excerpt": "UmucoNet — le lien entre toi et le Labyrinthe. Lit la section 8 de ton contrat, tout le monde la saute."
+  },
+  "whois": {
+    "domain": "umuco-net.bi",
+    "registrar": "NIC-BI (registre fictif)",
+    "created": "2010-07-01",
+    "expires": "2030-07-01",
+    "registrant": "UmucoNet SA",
+    "admin": "noc@umuco-net.bi",
+    "ns": ["ns1.umuco-net.bi", "ns2.umuco-net.bi"]
+  },
+  "pages": {
+    "/": {
+      "title": "UmucoNet",
+      "blocks": [
+        { "t": "h", "x": "UmucoNet" },
+        { "t": "p", "x": "Ton fournisseur d'accès. Fibre des collines, débit honnête, facturation moins." },
+        { "t": "h2", "x": "Section 8.4 du contrat d'abonnement" },
+        { "t": "p", "x": "« Toute activité de scan ou d'intrusion hors périmètre autorisé par écrit expose l'abonné à la suspension, au signalement aux autorités, et à une reconfiguration de son routeur un samedi soir. »" },
+        { "t": "p", "x": "Espace abonné : bientôt. (La section logs existe, elle, et elle fonctionne très bien.)" }
+      ]
+    }
+  }
+}

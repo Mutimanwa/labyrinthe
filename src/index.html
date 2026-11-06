@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>LABYRINTHE</title>
+<link rel="stylesheet" href="css/theme.css">
+</head>
+<body>
+<div id="app">
+
+  <!-- ======================= BARRE HAUTE ======================= -->
+  <div id="topbar">
+    <button class="ico" id="icoHome" title="Retour sur ton poste (exit)">⌂</button>
+    <button class="ico" id="icoBrowser" title="Navigateur — web intérieur">◈</button>
+    <button class="ico" id="icoNotes" title="Notes de cours">▤</button>
+    <button class="ico" id="icoSwap" title="Inverser terminal / affichage">⇄</button>
+    <button class="ico" id="icoSave" title="Sauvegarder">▣</button>
+    <button class="ico" id="icoHelp" title="Aide">?</button>
+    <button class="ico" id="icoSound" title="Son : activer / couper">♪</button>
+    <button class="ico" id="icoMail" title="Poste — boîte de réception">✉</button>
+    <span id="worldClock" title="Heure du monde — 1 s réelle = 1 min dans le Labyrinthe">—</span>
+    <span id="rankBadge" title="Rang et XP — clic : ouvrir le profil" role="button">…</span>
+    <span id="creditsTop" title="Crédits gagnés sur les contrats">0 cr</span>
+    <span id="ramFree">761</span>
+    <div class="loc">
+      <div>Location:<b id="locName">—</b></div>
+      <div>Home IP:<b id="locHome">—</b></div>
+    </div>
+  </div>
+
+  <div id="workspace">
+
+    <!-- ======================= COLONNE GAUCHE ======================= -->
+    <div class="col" id="colLeft">
+
+      <div class="panel" id="panelRam">
+        <div class="phead">RAM</div>
+        <div class="pbody">
+          <div class="ramline"><span>USED RAM:<b id="ramUsed">0mb</b></span><span>/ <span id="ramTotal">761</span>mb</span></div>
+          <div class="rambar" id="ramBar"><i style="width:0%"></i></div>
+          <div class="ramprocs"><span id="ramProcs">0</span> processus</div>
+        </div>
+      </div>
+
+      <div id="procStack"></div>
+
+      <div class="panel idle" id="panelTrace">
+        <div class="tlab">TRACE :</div>
+        <div class="tnum" id="traceNum">--.--</div>
+        <div class="tnote" id="traceNote">Aucun traçage. trace off pour le mode serein.</div>
+      </div>
+
+    </div>
+
+    <!-- ======================= COLONNE CENTRE ======================= -->
+    <div class="col" id="colCenter">
+
+      <div class="panel" id="panelDisplay">
+        <div class="phead">DISPLAY<span class="sp"></span><span id="displayTag"></span></div>
+        <div class="pbody" id="displayBody"></div>
+      </div>
+
+      <div class="panel" id="panelMap">
+        <div class="phead">netMap v1.7<span class="sp"></span><span id="mapCount">1 / 13</span></div>
+        <svg id="mapSvg" viewBox="0 0 700 175" preserveAspectRatio="xMidYMid meet"></svg>
+      </div>
+
+    </div>
+
+    <!-- ======================= COLONNE DROITE ======================= -->
+    <div class="col" id="colRight">
+
+      <div class="panel" id="panelTerm">
+        <div class="phead">TERMINAL<span class="sp"></span>
+          <button data-cmd="ls /usr/bin">outils</button>
+          <button data-cmd="ps aux">ps</button>
+          <button data-cmd="iptables -L -n -v">iptables</button>
+          <button data-cmd="nmap -sV">nmap</button>
+          <button data-cmd="clear">clear</button>
+        </div>
+        <div id="termScroll"><div id="termOut"></div></div>
+        <div id="termInput">
+          <div id="suggest"></div>
+          <div id="promptLine"><span class="pr" id="promptLoc">(10.10.0.5@㉿joueur)-[~]</span></div>
+          <div id="promptRow">
+            <span class="pr" id="prompt">&gt;</span>
+            <input id="cmd" autocomplete="off" spellcheck="false" autocapitalize="off" aria-label="Ligne de commande">
+          </div>
+        </div>
+      </div>
+
+      <div class="panel" id="panelGuide">
+        <div class="phead">Quick Reference Guide<span class="sp"></span>
+          <button data-cmd="cours">cours</button>
+          <button data-cmd="help">help</button>
+        </div>
+        <div class="pbody" id="guideBody"></div>
+      </div>
+
+      <div class="panel" id="panelMission">
+        <div class="phead">CONTRACT<span class="sp"></span><button id="btnContracts">TOUS</button><span id="missionTag">1 / 16</span></div>
+        <div class="pbody" id="missionBody"></div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<!-- ======================= TABLEAU DES CONTRATS ======================= -->
+<div class="ov" id="contracts">
+  <div class="modal wide">
+    <div class="mh"><h3>TABLEAU DES CONTRATS</h3><button id="contractsClose">×</button></div>
+    <div class="cbar">
+      <span>Crédits : <b id="cCredits">0</b></span>
+      <span>Terminés : <b id="cDone">0 / 16</b></span>
+      <span class="sp"></span>
+      <span class="cdim">Les contrats se débloquent dans l'ordre. La prime est versée à la validation.</span>
+    </div>
+    <div class="mb" id="contractsBody"></div>
+  </div>
+</div>
+
+<!-- ======================= LECTEUR DE COURS ======================= -->
+<div class="ov" id="reader">
+  <div class="modal">
+    <div class="mh"><h3 id="readerTitle">Note de cours</h3><button id="readerClose">×</button></div>
+    <div id="readerBody"></div>
+  </div>
+</div>
+
+<!-- ======================= ÉDITEUR ======================= -->
+<div class="ov" id="editor">
+  <div class="modal">
+    <div class="mh"><h3>Éditeur Python</h3><button id="editorClose">×</button></div>
+    <div class="ed-path" id="editorPath">—</div>
+    <textarea id="editorText" spellcheck="false"></textarea>
+    <div class="ed-bar">
+      <button id="editorRun">Exécuter</button>
+      <button id="editorSave">Enregistrer</button>
+      <span class="ed-hint">Tab indente · Ctrl+Entrée exécute</span>
+    </div>
+    <div class="ed-result" id="editorResult"></div>
+  </div>
+</div>
+
+<script src="js/bridge.js"></script>
+<script src="js/py.js"></script>
+<script src="js/engine.js"></script>
+<script src="js/campaign.js"></script>
+<script src="js/apiserver.js"></script>
+<script src="js/jsrun.js"></script>
+<script src="js/webdev.js"></script>
+<script src="js/game.js"></script>
+<script src="js/programs.js"></script>
+<script src="js/audio.js"></script>
+<script src="js/realcmd.js"></script>
+<script src="js/ui.js"></script>
+<script src="js/browser.js"></script>
+<script src="js/clock.js"></script>
+<script src="js/contracts.js"></script>
+<script src="js/profile.js"></script>
+<script src="js/forum.js"></script>
+<script src="js/mail.js"></script>
+<script src="js/echo.js"></script>
+<script src="js/npc.js"></script>
+</body>
+</html>

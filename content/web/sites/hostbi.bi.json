@@ -1,0 +1,44 @@
+{
+  "domain": "hostbi.bi",
+  "title": "HostBI — hébergement du web intérieur",
+  "acl": { "layer": 2 },
+  "fouine": {
+    "tags": ["hébergement", "serveurs", "dns", "ns1.hostbi.bi", "vps", "mutualisé"],
+    "excerpt": "HostBI — hébergement mutualisé et VPS. 99,9 % de disponibilité, 100 % de clients qui oublient leurs mises à jour."
+  },
+  "whois": {
+    "domain": "hostbi.bi",
+    "registrar": "NIC-BI (registre fictif)",
+    "created": "2014-12-01",
+    "expires": "2029-12-01",
+    "registrant": "HostBI SPRL",
+    "admin": "noc@hostbi.bi",
+    "ns": ["ns1.hostbi.bi", "ns2.hostbi.bi"]
+  },
+  "pages": {
+    "/": {
+      "title": "HostBI",
+      "blocks": [
+        { "t": "h", "x": "HostBI" },
+        { "t": "p", "x": "Hébergement mutualisé, VPS, DNS gérés. Le web intérieur tourne sur nos baies." },
+        { "t": "link", "x": "État des services", "href": "hostbi.bi/statut" },
+        { "t": "p", "x": "Support : noc@hostbi.bi — ouvert 24/7, réponse parfois." }
+      ]
+    },
+    "/statut": {
+      "title": "Statut",
+      "blocks": [
+        { "t": "h", "x": "État des services" },
+        { "t": "p", "x": "Cluster MUTU-1 (opérationnel) : héberge notamment coop-iteka.bi, kabave.bi, colle.bi, zerotrace.bi." },
+        { "t": "p", "x": "Cluster MUTU-2 (maintenance prévue) : bientôt le catalogue de kabave.bi — migration annoncée par leur admin." },
+        { "t": "table", "rows": [
+          ["Service", "État"],
+          ["Web mutualisé", "OK"],
+          ["DNS ns1/ns2", "OK"],
+          ["Webmail clients", "dégradé (ongoin maintenance)"]
+        ] },
+        { "t": "link", "x": "← Accueil", "href": "hostbi.bi/" }
+      ]
+    }
+  }
+}

@@ -1,0 +1,25 @@
+{
+  "domain": "netsec-interieur.bi",
+  "title": "NetSec-Intérieur",
+  "acl": { "layer": 3 },
+  "forum": true,
+  "fouine": { "noindex": true, "tags": ["forum", "communauté"], "excerpt": "" },
+  "whois": {
+    "domain": "netsec-interieur.bi",
+    "registrar": "NIC-BI (registre fictif)",
+    "created": "2022-11-05",
+    "expires": "2032-11-05",
+    "registrant": "MURMURE",
+    "admin": "mursource@netsec-interieur.bi",
+    "ns": ["ns1.hidden.example"]
+  },
+  "pages": {
+    "/": {
+      "title": "NetSec-Intérieur",
+      "blocks": [
+        { "t": "forum" },
+        { "t": "p", "x": "« Tu sais scanner. Montre que tu sais chercher. » — règle 0 du lieu." }
+      ]
+    }
+  }
+}

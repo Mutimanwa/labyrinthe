@@ -1,0 +1,111 @@
+{
+  "domain": "manpages.bi",
+  "title": "ManPages — le wiki",
+  "acl": { "layer": 2 },
+  "fouine": {
+    "tags": ["wiki", "cours", "documentation", "aide", "débutant", "nmap", "linux", "réseau", "python", "traces", "méthode"],
+    "excerpt": "Le wiki communautaire : la carte des 16 modules de cours, et la méthode avant tout."
+  },
+  "whois": {
+    "domain": "manpages.bi",
+    "registrar": "NIC-BI (registre fictif)",
+    "created": "2021-01-20",
+    "expires": "2031-01-20",
+    "registrant": "Collectif ManPages",
+    "admin": "root@manpages.bi",
+    "ns": ["ns1.fouine.bi"]
+  },
+  "pages": {
+    "/": {
+      "title": "ManPages",
+      "blocks": [
+        { "t": "h", "x": "ManPages" },
+        { "t": "p", "x": "Le wiki du Labyrinthe. Ici on ne donne pas de poissons : on documente la pêche, puis on renvoie à l'eau." },
+        { "t": "p", "x": "Les textes intégraux vivent dans ton lecteur de cours (tape 'cours' dans le terminal). Les pages ci-dessous sont les cartes." },
+        { "t": "h2", "x": "Cartes" },
+        { "t": "link", "x": "Le shell — naviguer, fichiers, filtres, permissions (modules 01-04)", "href": "manpages.bi/shell" },
+        { "t": "link", "x": "Python — variables, boucles, structures, débogage (modules 05-08)", "href": "manpages.bi/python" },
+        { "t": "link", "x": "Réseau & scan — ports, pare-feu, routage, méthodologie (modules 09-12)", "href": "manpages.bi/scan" },
+        { "t": "link", "x": "Discrétion — chiffrement, traces, secrets, éthique (modules 13-16)", "href": "manpages.bi/traces" },
+        { "t": "link", "x": "OSINT — tout savoir sans envoyer un paquet", "href": "manpages.bi/osint" },
+        { "t": "h2", "x": "Communauté" },
+        { "t": "p", "x": "Les questions techniques se posent sur NetSec-Intérieur (accès par rang)." },
+        { "t": "link", "x": "NetSec-Intérieur", "href": "netsec-interieur.bi/" }
+      ]
+    },
+    "/shell": {
+      "title": "Carte : le shell",
+      "blocks": [
+        { "t": "h", "x": "Le shell (modules 01-04)" },
+        { "t": "p", "x": "Tout commence là : se déplacer sans se perdre, lire sans ouvrir, trouver sans fouiller à la main." },
+        { "t": "code", "x": "pwd ; ls -la ; cd /var/log ; cat auth.log | grep ssh | wc -l" },
+        { "t": "list", "x": [
+          "01_navigation — chemins absolus vs relatifs; ~ est ta maison",
+          "02_fichiers — touch, cp, mv, rm ; rm ne prévient pas",
+          "03_filtres — le pipe est un assemblage, pas un tuyau magique",
+          "04_permissions — lire /var/log, c'est déjà comprendre qui est entré"
+        ] },
+        { "t": "p", "x": "Textes intégraux : tape 'cours' puis choisis le module." },
+        { "t": "link", "x": "← Retour au wiki", "href": "manpages.bi/" }
+      ]
+    },
+    "/python": {
+      "title": "Carte : Python",
+      "blocks": [
+        { "t": "h", "x": "Python (modules 05-08)" },
+        { "t": "p", "x": "Le deuxième couteau. Dès qu'une tâche se répète deux fois, elle s'écrit une fois." },
+        { "t": "code", "x": "# ton interpréteur est dans l'IDE (bouton Éditeur)\nservices = {'ssh': 22, 'http': 80}\nfor nom, port in services.items():\n    print(nom, '->', port)" },
+        { "t": "list", "x": [
+          "05_variables — nombres, chaînes, booléens ; les types ont des opinions",
+          "06_boucles — if/for/while ; une condition honnête vaut dix essais",
+          "07_structures — listes et dictionnaires ; 07 nourrit déjà des contrats",
+          "08_debogage — lire l'erreur, la reproduire, la tuer"
+        ] },
+        { "t": "link", "x": "← Retour au wiki", "href": "manpages.bi/" }
+      ]
+    },
+    "/scan": {
+      "title": "Carte : réseau & scan",
+      "blocks": [
+        { "t": "h", "x": "Réseau & scan (modules 09-12)" },
+        { "t": "p", "x": "Un port ouvert est une invitation. Un scan est un bruit. Les deux phrases sont vraies, toujours." },
+        { "t": "list", "x": [
+          "09_ports — un service, un port, une version : nmap -sV avant toute conclusion",
+          "10_parefeu — iptables/ufw : ce qui est filtré se défend, ce qui est ouvert s'explique",
+          "11_routage — ip r ; un pivot commence toujours par une table de routes",
+          "12_methodologie — passive d'abord, active ensuite, preuve avant destruction"
+        ] },
+        { "t": "p", "x": "Grille de bruit indicative : -sn 1 · -sS 2 · -sT 4 · -sV 5 · -p- double tout. Les chasseurs comptent." },
+        { "t": "link", "x": "← Retour au wiki", "href": "manpages.bi/" }
+      ]
+    },
+    "/traces": {
+      "title": "Carte : discrétion",
+      "blocks": [
+        { "t": "h", "x": "Discrétion (modules 13-16)" },
+        { "t": "list", "x": [
+          "13_chiffrement — base64 n'est PAS du chiffrement ; sha256sum non plus",
+          "14_traces — /var/log, history, wtmp : tu écris partout où tu passes",
+          "15_secrets — un mot de passe collé dans un paste revient toujours",
+          "16_ethique — autorisation écrite, périmètre, rapport. Le reste est du vol."
+        ] },
+        { "t": "p", "x": "Règle du wiki : effacer tous les logs est un aveu ; en lire trois lignes de trop est un alibi." },
+        { "t": "link", "x": "← Retour au wiki", "href": "manpages.bi/" }
+      ]
+    },
+    "/osint": {
+      "title": "Carte : OSINT",
+      "blocks": [
+        { "t": "h", "x": "OSINT — la reconnaissance sans bruit" },
+        { "t": "p", "x": "La meilleure intrusion est celle qu'on n'a pas eu besoin de forcer. Le web intérieur bavarde : fouine, whois, mentions légales, profils publics." },
+        { "t": "code", "x": "whois coop-iteka.bi     → titulaire, admin, DNS\nfouine : « bug bounty » → programmes déclarés autorisés" },
+        { "t": "list", "x": [
+          "Les gens signent partout : bio, équipe, mentions légales, footers de CMS",
+          "Une date + un animal + une ville = un dictionnaire sur mesure (phase 3)",
+          "Zéro paquet vers la cible = zéro bruit = zéro chasseur"
+        ] },
+        { "t": "link", "x": "← Retour au wiki", "href": "manpages.bi/" }
+      ]
+    }
+  }
+}

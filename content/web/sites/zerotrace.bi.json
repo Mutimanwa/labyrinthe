@@ -1,0 +1,52 @@
+{
+  "domain": "zerotrace.bi",
+  "title": "ZÉROTRACE — carnets d'un défenseur",
+  "acl": { "layer": 2 },
+  "fouine": {
+    "tags": ["blog", "sécurité", "blue team", "logs", "défense", "bruit", "opsec"],
+    "excerpt": "Carnets d'un défenseur : comment on vous voit, comment on vous lit, comment on vous arrête."
+  },
+  "whois": {
+    "domain": "zerotrace.bi",
+    "registrar": "NIC-BI (registre fictif)",
+    "created": "2023-05-17",
+    "expires": "2033-05-17",
+    "registrant": "GARDIEN (publication anonyme)",
+    "admin": "redaction@zerotrace.bi",
+    "ns": ["ns1.hostbi.bi"]
+  },
+  "pages": {
+    "/": {
+      "title": "ZÉROTRACE",
+      "blocks": [
+        { "t": "h", "x": "ZÉROTRACE" },
+        { "t": "p", "x": "Carnets d'un défenseur. Écrit depuis une salle serveur, entre deux alertes." },
+        { "t": "link", "x": "Le bruit que tu entends (c'est toi)", "href": "zerotrace.bi/bruit" },
+        { "t": "link", "x": "Les logs te lisent", "href": "zerotrace.bi/logs" }
+      ]
+    },
+    "/bruit": {
+      "title": "Le bruit que tu entends",
+      "blocks": [
+        { "t": "h", "x": "Le bruit que tu entends (c'est toi)" },
+        { "t": "p", "x": "Cette semaine : quatre scans -sT sur mon segment, deux -sV à 3 h du matin, un hydra -t 16 qui sonnait comme une perceuse dans le SIL. Tout le monde a été banni avant le dessert." },
+        { "t": "p", "x": "Le scan qui passe sous mes seuils ? -sS, espacé, un port à la fois. Je ne dis pas ça pour t'aider. Je dis ça parce que le prochain article parlera des pot de miel." },
+        { "t": "p", "x": "Grille mentale : -sn 1 · -sS 2 · -sT 4 · -sV 5 · tout scanner ×2. Un chasseur additionne." },
+        { "t": "link", "x": "← ZÉROTRACE", "href": "zerotrace.bi/" }
+      ]
+    },
+    "/logs": {
+      "title": "Les logs te lisent",
+      "blocks": [
+        { "t": "h", "x": "Les logs te lisent" },
+        { "t": "p", "x": "auth.log, wtmp, history, logs applicatifs : chaque visite écrit son nom quelque part. La moitié de mon travail consiste à lire ce que les visiteurs croient n'avoir jamais dit." },
+        { "t": "list", "x": [
+          "Log effacé entièrement = un trou dans le temps = une enquête ouverte",
+          "Deux lignes sélectivement absentes = un artisan, pas un vandale",
+          "Et oui, je compare les logs entre machines voisines. ECHO existe aussi de ton côté."
+        ] },
+        { "t": "link", "x": "← ZÉROTRACE", "href": "zerotrace.bi/" }
+      ]
+    }
+  }
+}

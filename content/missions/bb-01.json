@@ -1,0 +1,23 @@
+{
+  "id": "bb-01",
+  "titre": "Le site qui bavarde",
+  "phase": 1,
+  "type": "bug-bounty",
+  "giver": "MURMURE",
+  "layers": [2],
+  "brief": "La coopérative Iteka a ouvert un bug bounty. Leur site coop-iteka.bi est dans Fouine. Sans envoyer un seul paquet à leur serveur, trouve l'adresse email de leur administrateur technique et la version de leur CMS. Programme déclaré, cible autorisée — mais reste en reconnaissance passive : le bounty ne paie que si personne ne t'a vu.",
+  "requires": ["fouine"],
+  "hints_forum": [
+    "Tu cherches quoi, au juste : la machine ou la personne ?",
+    "Un registrar, ça se interroge. whois existe pour ça.",
+    "Les admins sont fiers de leur moteur de site — ils l'écrivent eux-mêmes, là où on parle d'eux."
+  ],
+  "win": {
+    "events": [
+      { "type": "whois", "target": "coop-iteka.bi" },
+      { "type": "visit", "target": "coop-iteka.bi/apropos" }
+    ]
+  },
+  "report_template": ["cible", "information obtenue", "méthode passive", "impact si abusé", "correctif"],
+  "reward": { "credits": 300, "respect": 4, "xp": 120 }
+}
