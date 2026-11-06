@@ -184,18 +184,19 @@ Gameplay : le terminal montre parfois **son propre historique relu par un chasse
 5. **PENTESTEUR** — tu signes des rapports que GARDIEN lit (phase 6 entamée)
 6. **MAÎTRE DU LABYRINTHE** — fin de campagne ; toi aussi tu peux filer un contrat à un débutant PNJ (boucle bouclée)
 
-Le rang est **itératif par validation de phase**, pas par grinding : la liste des exigences est affichée (le joueur sait où il va, jamais comment y arriver — P1).
+Dans la version actuelle, le rang est basé sur l'XP : 0, 400, 1 200, 3 000, 6 000 et 8 000 XP respectivement ; le dernier exige aussi la campagne terminée. Certaines ambitions narratives de cette section restent à construire.
 
 ### 6.2 XP et anti-grind
-- XP à la **première réussite** d'une technique (scanner un nouveau type de service, premier SQLi, premier pivot). Répéter la même chose ne rapporte que des crédits.
-- Si le joueur est bloqué, l'XP des « micro-défis » (mapper 5 hôtes, lire 10 pages ManPages) assure une progression douce.
+- Chaque mission rapporte en XP ses points de score (100 plus un éventuel bonus de rapidité) et la moitié de sa prime en crédits. Le score et les crédits restent distincts de l'XP.
+- Les contrats data donnent leur propre XP ; 16 techniques donnent de l'XP à leur première réussite seulement. Les anciennes sauvegardes reçoivent une fois le complément lié aux missions déjà terminées.
+- Sans bonus de rapidité, la campagne rapporte 7 750 XP ; les contrats et techniques apportent jusqu'à 570 et 535 XP supplémentaires. Le rang final et le nettoyage de Tâche-Noire sont ainsi accessibles.
 
 ### 6.3 Réputation double — l'axe moral mécanique
-- **Respect** (surface) : rapports propres, responsable disclosure, mission GARDIEN. Débloque contrats d'État, certifs, fin blanche.
-- **Créd** (Puits) : contrats gris/noirs, publicité de exploits, jamais se faire attraper. Débloque matos rare, fin noire.
-- Les deux jauges se **répondent** : passé un seuil de Créd, certains donneurs blancs te ferment leur porte à jamais (et inversement). Pas de respec : la réputation, comme les logs, ne s'efface pas vraiment. → fin alternative double, PNJ réactifs aux deux.
+- **Respect** (surface) : obtenu notamment par les contrats data ; certains incidents et choix le réduisent.
+- **Créd** (Puits) : +1 pour le premier achat de chaque article et +2 la première fois qu'on résiste à GARDIEN. Ces bonus ne se répètent pas à l'infini.
+- Les jauges et les incidents déterminent une fin **narrative**. Contrats d'État ou noirs supplémentaires, certifications et blocage de donneurs sont des pistes de conception, pas des déblocages implémentés.
 
-### 6.4 Matériel (déjà suggéré par le panneau RAM)
+### 6.4 Matériel (idées futures, déjà suggérées par le panneau RAM)
 - Upgrades RAM/CPU/disque : plus de processus simultanés, hydra plus rapide, wordlists locales plus grosses, machines relais plus nombreuses.
 - Achat en crédits **surface** (légal, traçable) ou **sats** (Puits, moins cher, certains articles « tapés » peuvent contenir une surprise — un cheval de Troie … leçon : ne jamais faire confiance à un binaire).
 - GPU = fin de jeu : brute-force hors ligne de shadow (john plus rapide).
@@ -208,56 +209,62 @@ Le Puits (couche 4, darknet) n'est pas directement joignable. Pour l'atteindre, 
 
 **Commandes :**
 - `relais` — affiche le statut du chenillard (position, crédits dépensés, latence, verrou OPÉRATEUR)
-- `relais sauter` — effectue le saut suivant (coût : 50 crédits, latence simulée : 3 s par saut)
-- `relais arreter` — stoppe à la position actuelle
+- `relais sauter` — lance le saut suivant (3 secondes, 50 crédits débités à l'arrivée)
+- `relais arreter` — annule gratuitement un saut en cours
+- `relais recommencer` — remet la chaîne au départ, sans rembourser les sauts déjà effectués
 
 **Contraintes :**
 - Rang OPÉRATEUR (3000 xp) requis pour commencer
 - 3 sauts obligatoires avant d'atteindre le Puits
-- Chaque saut déduit 50 crédits et ajoute 3 s de latence simulée
-- À l'arrivée : le Puits est découvert, lié au poste du joueur, et accessible via `ssh 10.10.0.99`
+- Chaque saut terminé déduit 50 crédits après 3 s ; le relais privé réduit les prochains sauts à 1 s
+- À l'arrivée : le Puits est découvert, lié au poste du joueur, et accessible via `ssh joueur@10.10.0.99` (mot de passe fictif `puits`)
 - Persisté avec la sauvegarde (v4, champ `game.relais`)
 
 ### 6.7 Marché du Puits — sats et articles piégés (T19)
 Une fois le Puits atteint (chenillard de relais complété), le joueur peut accéder au **Marché du Puits** via la commande `marché`.
 
 **Commandes :**
-- `marché` — liste les articles en vente (prix en sats) et le solde du joueur
+- `marché` (ou `marche`) — liste les articles en vente (prix en sats) et le solde du joueur
 - `marché acheter <id>` — achète un article (déduit des sats, ajoute à l'inventaire, crée un fichier dans `/home/joueur/achats/`)
-- `marché changer <montant crédits>` — échange crédits en sats au taux de change fluctuant (800–1200 crédits par sat, sinusoïde sur 30 min)
+- `marché changer <montant crédits>` — échange un nombre entier de crédits en sats au taux fluctuant (40–60 crédits par sat, sinusoïde sur 30 min) ; les crédits insuffisants pour former un sat restent sur le compte
 - `marché inventaire` — affiche les articles achetés, marque les piégés
 - `run <fichier>` — exécute un fichier acheté ; détecte et déclenche les pièges
 
 **Articles :**
 | Article | Prix | Type | Effet |
 |---|---|---|---|
-| Wordlist Premium | 50 sats | sûr | Wordlist étendue pour hydra |
-| Relais Privé | 100 sats | sûr | Latence chenillard 3s → 1s |
-| Exploit 0-day | 200 sats | sûr | Module msf fictif pour cible appropriée |
-| Nettoyeur Magique | 30 sats | **PIÉGÉ** | Porte dérobée simulée (−5 sats, −5 respect) |
+| Wordlist Premium | 50 sats | sûr | `/usr/share/wordlists/rockyou_premium.txt`, utilisable par hydra |
+| Relais Privé | 100 sats | sûr | Latence des prochains sauts 3 s → 1 s, après `relais recommencer` |
+| Exploit 0-day | 200 sats | sûr | Module msf fictif limité au laboratoire CODE |
+| Nettoyeur Magique | 30 sats | **PIÉGÉ** | Porte dérobée simulée (jusqu'à −5 sats et −5 respect), risque de Tâche-Noire |
 
 **Leçon pédagogique :** ne jamais exécuter un binaire du marché noir sans l’avoir audité. Les articles piégés créent un fichier suspect dans `/home/joueur/achats/` et, s’ils sont exécutés via `run`, déclenchent une pénalité et un événement `piege-declenche`.
 
-Inventaire, achats et sats sont persistés avec la sauvegarde (v4).
+Inventaire, achats et sats sont persistés avec la sauvegarde (v4). La campagne offre 11 100 crédits et les trois contrats data 1 700 crédits ; après les 150 crédits du premier chenillard, le taux retenu laisse accessibles les articles, y compris celui à 200 sats. Les anciennes wordlists achetées mais non livrées sont migrées sans écraser un fichier existant.
 
 ### 6.8 GARDIEN, Tâche-Noire et fins doubles (T20)
 Le monde réagit à votre conduite dans le Puits. Deux sous-systèmes mécanisent cette réaction : le **GARDIEN** (enquête defensive) et la **Tâche-Noire** (rançongiciel offensif).
 
 **Incidents noirs** : chaque achat d'article piégé sur le Marché du Puits, ou chaque exécution d'un binaire provenant du Puits (`run` sur un fichier dans `/home/joueur/achats/`), enregistre un incident noir (`type`, horodatage, détail).
 
-**GARDIEN** : quand 2 incidents noirs sont corrélés, le GARDIEN ouvre une enquête.
-- `gardien` — affiche le statut (incidents détectés, enquête active, étape)
-- `gardien cooperer` — coopération : perte modérée de crédits/respect
-- `gardien resister` — résistance : risque de saisie totale d'outils
+**GARDIEN** : après deux incidents noirs non traités, une enquête s'ouvre.
+- `gardien` — affiche le statut et les conséquences
+- `gardien cooperer` — clôt l'enquête, jusqu'à −100 crédits et −2 respect
+- `gardien resister` — clôt l'enquête, jusqu'à −5 respect et 60 % de risque de saisie de l'inventaire ; les fichiers existants restent intacts
 
-**Tâche-Noire** : rançongiciel qui peut frapper si vous traînez dans le Puits mal protégé.
-- `tache-noire` — statut de la rançon active
-- `tache-noire payer` — payer en sats pour déchiffrer les fichiers
-- `tache-noire refuser` — perdre les fichiers chiffrés (−5 respect)
+**Tâche-Noire** : 40 % de risque lors de l'exécution du Nettoyeur Magique. Cette simulation masque uniquement `/home/joueur/bloc_notes.txt` dans le système de fichiers du jeu ; une copie est conservée dans la sauvegarde fictive.
+- `tache-noire` — statut et options
+- `tache-noire payer` — 20 sats pour restaurer la copie simulée
+- `tache-noire nettoyer` — restaurer gratuitement à partir de 5 000 XP
+- `tache-noire refuser` — refuser pour l'instant sans supprimer la note ; une modification manuelle n'est jamais écrasée lors de la restauration
 
-**Fins doubles** : à la fin de campagne, `fin` détermine votre issue :
-- **Fin blanche** : Respect ≥ Créd et peu d'incidents noirs → reconnaissance white hat, certification obtenue
-- **Fin noire** : Créd > Respect ou ≥3 incidents noirs → marqué par le Puits, accès contrats noirs
+Dans la réalité, payer une rançon ne garantit pas la récupération des données.
+
+**Fins doubles** : après les 22 missions, `fin` détermine une issue narrative :
+- **Fin blanche** : Respect ≥ Créd et moins de 3 incidents noirs
+- **Fin noire** : Créd > Respect ou au moins 3 incidents noirs
+
+Ces fins ne débloquent ni véritable certification ni nouveaux contrats.
 
 États persistés en v4 : `incidentsNoirs`, `gardienEnquete`, `tacheNoire`, `fin`.
 

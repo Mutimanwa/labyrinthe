@@ -33,12 +33,8 @@
   const LATENCE = { 1: 120, 2: 220, 3: 600, 4: 2400 };   // ms, par couche
 
   async function lireContenu(chemin) {
-    if (global.LabyBridge && global.LabyBridge.tauri) {
-      const r = await global.LabyBridge.contentLoad(chemin);
-      return r ? JSON.parse(r) : null;
-    }
-    const r = await fetch('content/' + chemin);
-    return r.ok ? r.json() : null;
+    const r = await global.LabyBridge.contentLoad(chemin);
+    return r ? JSON.parse(r) : null;
   }
 
   async function chargerSites() {
@@ -105,6 +101,7 @@
 
   /* ------------------------------------------------ navigation */
   const hist = []; let histI = -1;
+  let navigationId = 0;
 
   function parseUrl(u) {
     u = String(u || '').trim().toLowerCase()
@@ -123,17 +120,28 @@
   function navigate(urlSansNettoyage, pousser = true) {
     const { domain, path } = parseUrl(urlSansNettoyage);
     const couche = coucheDu(domain);
+    const requete = ++navigationId;
+    const adresse = domain + path;
     const t0 = performance.now();
     const stat = $('webStat');
+    const barre = $('webUrl');
     if (stat) stat.textContent = 'résolution…';
+    if (barre) barre.value = adresse;
 
     setTimeout(() => {
+      // Une réponse lente ne doit jamais écraser une navigation plus récente.
+      if (requete !== navigationId) return;
       const ms = Math.max(1, Math.round(performance.now() - t0));
       const s = Sites.get(domain);
       const body = $('webBody');
-      const barre = $('webUrl');
       if (!body) return;
       body.innerHTML = '';
+      // Même les pages d'erreur sont des destinations : l'adresse et les
+      // boutons précédent/suivant doivent rester cohérents après un 403/404.
+      if (pousser) {
+        hist.splice(histI + 1);
+        hist.push(adresse); histI = hist.length - 1;
+      }
 
       if (!s) {
         evt('visit', { target: domain + path, found: false });
@@ -157,26 +165,23 @@
       const page = s.pages[path];
       let routeDynamique = false;
       if (!page && s.forum && global.LabyForum && global.LabyForum.canRoute(path)) {
-        evt('visit', { target: domain + path, found: true });
         routeDynamique = global.LabyForum.renderRoute(body, domain, path) === true;
       }
       if (routeDynamique) {
         document.title = 'LABYRINTHE — ' + s.title;
-        if (barre) barre.value = domain + path;
+        evt('visit', { target: adresse, found: true });
       } else if (!page && path !== '/') {
+        evt('visit', { target: adresse, found: false });
         corpsErreur(body, '404', `Pas de page « ${path} » sur ${domain}.`, 'Le serveur existe, la page non.');
+        if (stat) stat.textContent = `404 · ${domain} · ${ms} ms`;
+        return;
       } else {
         const pg = page || s.pages['/'];
         document.title = 'LABYRINTHE — ' + (pg.title || s.title);
-        if (barre) barre.value = domain + (path === '/' ? '/' : path);
-        evt('visit', { target: domain + path, found: true });
+        evt('visit', { target: adresse, found: true });
         for (const b of pg.blocks || []) rendBlock(body, b, domain);
       }
       if (stat) stat.textContent = `${domain} · couche ${couche} · ${ms} ms`;
-      if (pousser) {
-        hist.splice(histI + 1);
-        hist.push(domain + path); histI = hist.length - 1;
-      }
     }, LATENCE[couche] || 220);
   }
 

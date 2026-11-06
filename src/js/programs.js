@@ -42,6 +42,12 @@
       desc: 'Framework d\'exploitation. Module choisi via searchsploit.',
       usage: 'msfconsole -x "use <module>; set RHOSTS <ip>; exploit"'
     },
+    Relais: {
+      ram: 40, duration: 3000,
+      steps: ['Ouverture du relais', 'Routage simulé', 'Établissement du saut'],
+      desc: 'Un saut du chenillard vers le Puits.',
+      usage: 'relais sauter   |   relais arreter'
+    },
   };
 
   const RAM_TOTAL = 761;
@@ -243,11 +249,15 @@
 
       switch (p.name) {
         case 'Hydra': {
-          if (this.runHydra) this.runHydra();
+          if (this.runHydra) this.runHydra(p);
           break;
         }
         case 'Metasploit': {
-          if (this.runMsf) this.runMsf();
+          if (this.runMsf) this.runMsf(p);
+          break;
+        }
+        case 'Relais': {
+          if (this.runRelais) this.runRelais(p);
           break;
         }
         default:
@@ -261,7 +271,7 @@
     const origSerialize = game.serialize.bind(game);
     game.serialize = function () {
       const base = JSON.parse(origSerialize());
-      base.v = 3;
+      base.v = Math.max(base.v || 1, 3);
       base.programs = this.processes.filter(p => p.persistent && !p.cancelled)
         .map(p => ({ name: p.name, pid: p.pid }));
       base.traceEnabled = this.traceEnabled;
@@ -272,6 +282,13 @@
     const origRestore = game.restore.bind(game);
     game.restore = function (json) {
       const d = JSON.parse(json);
+      // Ces champs sont restaurés par cette couche : les contrôler avant
+      // d'appeler la restauration du monde pour éviter une mutation partielle.
+      if (d && ((d.programs != null && (!Array.isArray(d.programs) ||
+          d.programs.some(p => !p || typeof p !== 'object' || typeof p.name !== 'string' || !Number.isFinite(p.pid)))) ||
+          (d.narrative != null && !Array.isArray(d.narrative)))) {
+        throw new Error('processus ou journal de sauvegarde invalides');
+      }
       origRestore(json);
       this.traceEnabled = d.traceEnabled !== false;
       this.themeOverride = d.themeOverride || null;
@@ -284,6 +301,7 @@
           if (!spec) continue;
           const p = new Process(s.name, spec, [], this.world.current, Date.now());
           p.pid = s.pid;
+          Process.nextPid = Math.max(Process.nextPid, Number(p.pid) + 1 || Process.nextPid);
           this.processes.push(p);
         }
       }

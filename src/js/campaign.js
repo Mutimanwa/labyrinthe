@@ -22,20 +22,21 @@ Tu es dans un réseau simulé. Rien de ce que tu tapes ici
 ne sort de ton navigateur. Aucun risque, aucune loi enfreinte.
 
 POUR COMMENCER
-  missions              voir les contrats disponibles
-  objectif              relire la mission en cours
-  scan                  découvrir les machines voisines
-  connect 10.10.0.1     rejoindre le serveur ACADEMIE
-  help                  toutes les commandes
+  missions                    voir les contrats disponibles
+  objectif                    relire la mission en cours
+  nmap -sn 10.10.0.0/24       découvrir les machines voisines
+  ssh joueur@10.10.0.1        rejoindre ACADEMIE (mot de passe : joueur)
+  help                        toutes les commandes
 
 PROGRESSION
-  4 modules, 16 missions. Chaque module se débloque en
+  5 modules, 22 missions. Chaque module se débloque en
   réussissant le précédent.
 
-  MODULE 1  SHELL LINUX      missions 1-4
-  MODULE 2  PROGRAMMATION    missions 5-8
-  MODULE 3  RESEAU           missions 9-12
-  MODULE 4  CYBERSECURITE    missions 13-16
+  MODULE 1  SHELL LINUX          missions 1-4
+  MODULE 2  PROGRAMMATION        missions 5-8
+  MODULE 3  RESEAU               missions 9-12
+  MODULE 4  CYBERSECURITE        missions 13-16
+  MODULE 5  DÉVELOPPEMENT WEB    missions 17-22
 
 Les notes de cours sont sur ACADEMIE, dans /home/cours.
 Lisez-les. Elles contiennent tout ce dont vous avez besoin.`,
@@ -973,7 +974,7 @@ Boucle classique :
         files: {
           '/home/joueur/consigne.txt': `Mission 9 : identifie la vraie nature du service sur le port 8899.
 
-  nmap 10.10.3.10              scan par défaut : que dit-il ?
+  nmap -p 8899 10.10.3.10      que devine-t-on sur ce port ?
   nmap -sV -p 8899 10.10.3.10  interroge réellement le service
   nc 10.10.3.10 8899           lis la bannière brute
 
@@ -1232,7 +1233,7 @@ Destination finale : le Puits (10.10.0.99)
         }
       },
       {
-        id: 'puits', users: {}, theme: 'red', name: 'Le Puits', ip: '10.10.0.99', os: 'Linux',
+        id: 'puits', users: { joueur: 'puits' }, theme: 'red', name: 'Le Puits', ip: '10.10.0.99', os: 'Linux',
         desc: 'Marché noir du darknet. Achats en sats. Articles parfois piégés.',
         links: [],
         ports: { 22: P('ssh', 'OpenSSH 9.6p1'), 80: P('http', 'nginx 1.24.0') },
@@ -1281,9 +1282,14 @@ Puis tape : valider
 Ce sont de vraies commandes. Rien ne sort de ton navigateur.`,
       cours: '/home/cours/01_navigation.txt',
       validate(w, s, ev) {
-        const ok = ev.some(e => e.type === 'read' && e.paths &&
+        const discovered = w.node('academie').discovered;
+        const connected = ev.some(e => e.type === 'ssh' && e.target === 'academie');
+        const read = ev.some(e => e.type === 'read' && e.paths &&
           e.paths.some(p => p.includes('01_navigation')));
-        return { done: ok, hint: ok ? '' : "Lis la note avec : cat /home/cours/01_navigation.txt (depuis ACADEMIE)" };
+        const hint = !discovered ? 'Découvre ACADEMIE : nmap -sn 10.10.0.0/24'
+          : !connected ? 'Connecte-toi : ssh joueur@10.10.0.1'
+          : 'Lis la note : cat /home/cours/01_navigation.txt (depuis ACADEMIE)';
+        return { done: discovered && connected && read, hint: discovered && connected && read ? '' : hint };
       },
       debrief: `Tu sais te déplacer dans un réseau et lire un fichier.
 
@@ -1295,7 +1301,7 @@ C'est ainsi qu'on cartographie un réseau de proche en proche.`
       client: "Client anonyme · via ACADEMIE", reward: 300, difficulty: 2, kind: "Exfiltration",
       objectives: [
         { label: "Versions des services de 10.10.1.10 relevées", done: (w,sh,ev)=>ev.some(e=>e.type==='nmap'&&e.target==='shellLab'&&e.sV) },
-        { label: "Mot de passe root obtenu par dictionnaire", done: (w,sh,ev,g)=>!!(g.creds['10.10.1.10']||{}).root },
+        { label: "Mot de passe root obtenu par dictionnaire", done: (w,sh,ev)=>ev.some(e=>e.type==='hydra'&&e.target==='shellLab'&&e.user==='root'&&e.success) },
         { label: "Rapport copié sur ton poste", done: w=>!!w.home.get('/home/joueur/telecharges/rapport_confidentiel.txt') }
       ],
       brief: `OBJECTIF
@@ -1519,8 +1525,8 @@ corriger, revérifier. C'est ça, déboguer.`
       id: 8, module: 'PROGRAMMATION', titre: 'Écrire une fonction',
       client: "Serveur de build", reward: 500, difficulty: 4, kind: "Python · fonctions",
       objectives: [
-        { label: "est_sur() renvoie le bon résultat", done: (w,sh,ev)=>ev.some(e=>e.type==='python'&&/exercice_04/.test(e.path||'')&&e.ok) },
-        { label: "ports_hauts() renvoie [3306, 8080]", done: (w,sh,ev)=>ev.some(e=>e.type==='python'&&/mission8/.test(e.path||'')&&e.ok) }
+        { label: "exercice_04.py exécuté sans erreur", done: (w,sh,ev)=>ev.some(e=>e.type==='python'&&/exercice_04/.test(e.path||'')&&e.ok) },
+        { label: "mission8.py exécuté sans erreur", done: (w,sh,ev)=>ev.some(e=>e.type==='python'&&/mission8/.test(e.path||'')&&e.ok) }
       ],
       brief: `OBJECTIF — deux fonctions à écrire
 
@@ -1569,14 +1575,14 @@ La seconde est plus idiomatique en Python.`
       id: 9, module: 'RESEAU', titre: 'Cartographier les ports',
       client: "Audit réseau · cabinet tiers", reward: 350, difficulty: 2, kind: "Empreinte de service",
       objectives: [
-        { label: "nmap -sV lancé sur le port 8899", done: (w,sh,ev)=>ev.some(e=>e.type==='nmap'&&e.sV&&e.target==='netLab') }
+        { label: "nmap -sV lancé sur le port 8899", done: (w,sh,ev)=>ev.some(e=>e.type==='nmap'&&e.sV&&e.target==='netLab'&&(e.ports||[]).includes(8899)) }
       ],
       brief: `OBJECTIF
   Sur le Laboratoire RESEAU (10.10.3.10), trouve la VRAIE nature
   du service sur le port 8899.
 
 ÉTAPES
-  nmap 10.10.3.10              que vois-tu sur 8899 ?
+  nmap -p 8899 10.10.3.10      que devine-t-on sur ce port ?
   nmap -sV -p 8899 10.10.3.10  interroge réellement le service
   nc 10.10.3.10 8899           la bannière brute confirme
 
@@ -1588,7 +1594,7 @@ Le piège : sans -sV, nmap devine d'après le numéro de port.`,
       validate(w, s, ev, answer) {
         const a = String(answer).toLowerCase();
         const ok = a.includes('python') || a.includes('simplehttp');
-        const scanned = ev.some(e => e.type === 'nmap' && e.sV && e.ports && e.ports.includes(8899));
+        const scanned = ev.some(e => e.type === 'nmap' && e.target === 'netLab' && e.sV && e.ports && e.ports.includes(8899));
         return {
           done: ok && scanned,
           hint: !scanned ? "Fais d'abord : nmap -sV -p 8899" : "Regarde la colonne VERSION, pas SERVICE"
@@ -1607,7 +1613,7 @@ C'est cette version qui permet ensuite de chercher les CVE.`
       id: 10, module: 'RESEAU', titre: 'Franchir un pare-feu',
       client: "Client confidentiel", reward: 700, difficulty: 4, kind: "Franchissement de filtrage",
       objectives: [
-        { label: "Compte admin trouvé par dictionnaire", done: (w,sh,ev,g)=>!!(g.creds['10.10.3.11']||{}).admin },
+        { label: "Compte admin trouvé par dictionnaire", done: (w,sh,ev)=>ev.some(e=>e.type==='hydra'&&e.target==='netFw'&&e.user==='admin'&&e.success) },
         { label: "Session root obtenue (sudo -i)", done: w=>w.node('netFw').isAdmin },
         { label: "Règles de filtrage vidées (iptables -F)", done: w=>w.node('netFw').firewallDown }
       ],
@@ -1714,8 +1720,8 @@ un service sur un port élevé passe inaperçu sans cette option.`,
           hint: !scanned ? "Fais un scan complet : nmap -p-" : "Compte les lignes marquées open"
         };
       },
-      debrief: `6 ports ouverts. Dont un sur 8899, invisible sans -p-
-ni dans le top-1000 par défaut selon les outils.
+      debrief: `6 ports ouverts. Dont un sur 8899, absent du scan par
+défaut simulé : -p 8899 ou -p- permet de le découvrir.
 
 Un rapport d'audit commence par des faits vérifiables :
 combien de ports, lesquels, quelles versions. Les
@@ -1820,13 +1826,12 @@ rotation régulière.`
   cat /var/log/actions.log
   grep -c intrusion /var/log/actions.log
 
-Réponds : valider <le nombre>
-
-Puis dépose le rapport sur le Dépôt :
+Note le nombre, puis dépose le rapport sur le Dépôt :
   scp root@10.10.4.20:/home/joueur/rapport_audit.txt .
   exit
   scp /home/joueur/telecharges/rapport_audit.txt joueur@10.10.0.9:/depot/
 
+Quand le rapport est déposé, tape : valider <le nombre>
 La dernière commande est un scp local → distant : la vraie syntaxe.`,
       cours: '/home/cours/14_traces.txt',
       needsAnswer: true,
@@ -1852,15 +1857,15 @@ lire peut reconstituer une intrusion des mois après.`
       id: 16, module: 'CYBERSECURITE', titre: 'Audit final',
       client: "Direction · audit final", reward: 1000, difficulty: 5, kind: "Synthèse et éthique",
       objectives: [
-        { label: "Rapport complété (VALIDE)", done: w=>/VALIDE/.test((w.node('secCible').get('/home/joueur/rapport_audit.txt')||{}).content||'') },
+        { label: "Rapport complété (VALIDE et champs renseignés)", done: w=>{ const c=(w.node('secCible').get('/home/joueur/rapport_audit.txt')||{}).content||''; return /VALIDE/.test(c)&&/Ports TCP ouverts\s*:\s*6\b/.test(c)&&/Service inconnu sur port eleve\s*:\s*port 47391\b/.test(c); } },
         { label: "Note 16_ethique.txt lue", done: (w,sh,ev)=>ev.some(e=>e.type==='read'&&(e.paths||[]).some(p=>/16_ethique/.test(p))) }
       ],
       brief: `OBJECTIF — la synthèse
 
 Sur la Cible d'audit (10.10.4.20) :
 
-  sed -i 's/A_REMPLIR/6/g' /home/joueur/rapport_audit.txt
-  sed -i 's/A_REMPLIR/port 47391/g' /home/joueur/rapport_audit.txt
+  sed -i 's/Ports TCP ouverts : A_REMPLIR/Ports TCP ouverts : 6/g' /home/joueur/rapport_audit.txt
+  sed -i 's/Service inconnu sur port eleve : A_REMPLIR/Service inconnu sur port eleve : port 47391/g' /home/joueur/rapport_audit.txt
   sed -i 's/BROUILLON/VALIDE/g' /home/joueur/rapport_audit.txt
 
 Puis lis la dernière note, sur le cadre légal :
@@ -1871,7 +1876,9 @@ Puis : valider`,
       cours: '/home/cours/16_ethique.txt',
       validate(w, s, ev) {
         const f = w.node('secCible').get('/home/joueur/rapport_audit.txt');
-        const okRapport = f && f.content.includes('VALIDE') && !f.content.includes('A_REMPLIR');
+        const okRapport = !!(f && f.content.includes('VALIDE') && !f.content.includes('A_REMPLIR') &&
+          /Ports TCP ouverts\s*:\s*6\b/.test(f.content) &&
+          /Service inconnu sur port eleve\s*:\s*port 47391\b/.test(f.content));
         const okEthique = ev.some(e => e.type === 'read' && e.paths &&
           e.paths.some(p => p.includes('16_ethique')));
         const parts = [];

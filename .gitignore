@@ -5,6 +5,10 @@ src-tauri/gen/
 # Node
 node_modules/
 
+# Python
+__pycache__/
+*.py[cod]
+
 # Builds monofichier
 dist/
 

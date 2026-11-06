@@ -60,6 +60,9 @@
     { match: /Tomcat 10\.1/, title: 'Apache Tomcat - Manager Weak Credentials', path: 'multiple/remote/47892.py', msf: 'auxiliary/scanner/http/tomcat_mgr_login', port: 8080 },
     { match: /SimpleHTTPServer/, title: 'Python SimpleHTTPServer - Directory Traversal', path: 'multiple/webapps/39203.py', msf: null, port: 8899, note: 'Sert le dossier courant : tout est lisible.' }
   ];
+  // Ce module du marché n'existe que dans la fiction et ne fonctionne que
+  // sur le laboratoire CODE, jamais sur un logiciel ou une cible réels.
+  const LABY_MODULE = { msf: 'exploit/labyrinthe/http/entrainement', port: 80, target: 'codeLab' };
 
   // ------------------------------------------------------------ INSTALL
   function install(game) {
@@ -152,8 +155,8 @@
         if (err) return { out: 'nmap: ' + err, code: 1 };
         t = found;
       }
-      const sV = has('-sV'), sS = has('-sS'), sU = has('-sU'), F = has('-F');
-      const O = has('-O'), A = has('-A'), reason = has('--reason'), Pn = has('-Pn');
+      const A = has('-A'), sV = has('-sV') || A, sS = has('-sS'), sU = has('-sU'), F = has('-F');
+      const O = has('-O'), reason = has('--reason'), Pn = has('-Pn');
       const allPorts = has('-p-');
       const script = a.find(x => x.startsWith('--script'));
       let explicit = null;
@@ -169,7 +172,7 @@
         }
       }
       const TOP100 = [21, 22, 23, 25, 53, 80, 110, 135, 139, 143, 443, 445, 993, 995, 1433, 1723, 3306, 3389, 5432, 5900, 8080];
-      const EXTRA = [81, 88, 111, 1521, 2049, 2121, 2222, 3000, 3128, 4444, 5000, 5060, 6379, 8000, 8081, 8443, 8888, 8899, 9000, 9090, 9200, 11211, 27017, 31337, 47391];
+      const EXTRA = [81, 88, 111, 1521, 2049, 2121, 2222, 3000, 3128, 4444, 5000, 5060, 6379, 8000, 8081, 8443, 8888, 9000, 9090, 9200, 11211, 27017, 31337];
       let universe = allPorts ? 'all' : explicit ? explicit : F ? TOP100 : TOP100.concat(EXTRA);
       const open = t.openPorts();
       const visible = open.filter(p => universe === 'all' || universe.includes(p));
@@ -192,9 +195,13 @@
           const state = t.porteOuverte(p) ? 'open' : 'filtered';
           const rs = reason ? (state === 'filtered' ? '  no-response' : '  syn-ack ttl 64') : '';
           const portcol = rpad(p + '/tcp', 9);
-          lines.push(sV || A
-            ? `${portcol} ${pad(state, 8)} ${pad(info.service, 12)} ${info.version}${rs}`
-            : `${portcol} ${pad(state, 8)} ${info.service}${rs}`);
+          const guessed = (E.PORT_DB[p] && E.PORT_DB[p].service) || 'unknown';
+          // Sans -sV, Nmap déduit le nom du numéro : il ne connaît pas
+          // encore le vrai service. Un port filtré ne révèle pas sa version.
+          const service = sV && state === 'open' ? info.service : guessed;
+          lines.push(sV
+            ? `${portcol} ${pad(state, 8)} ${pad(service, 12)} ${state === 'open' ? info.version : '-'}${rs}`
+            : `${portcol} ${pad(state, 8)} ${service}${rs}`);
         }
       }
       if (O || A) {
@@ -350,14 +357,16 @@ Wordlist disponible sur ton poste : /usr/share/wordlists/rockyou.txt`, code: 1
       if (!port) return { out: `hydra: aucun service ${service} sur ${node.ip}. Fais nmap -sV ${node.ip}`, code: 1 };
       const threads = tIdx >= 0 ? parseInt(a[tIdx + 1], 10) : 16;
 
-      game.hydraJob = { node, user, service, port: Number(port), words: wl.content.split('\n').filter(Boolean), threads };
       const r = game.spawn ? game.spawn('Hydra', [target, user, wlPath]) : null;
-      if (r && !r.ok) return { out: r.msg, code: 1 };
-      return { out: `__PROC__${r ? r.process.pid : 0}`, code: 0 };
+      if (!r || !r.ok) return { out: r ? r.msg : 'hydra: gestionnaire de processus indisponible', code: 1 };
+      // Les paramètres appartiennent au processus, pas à une variable globale :
+      // deux attaques lancées en parallèle ne doivent pas échanger leurs cibles.
+      r.process.job = { node, user, service, port: Number(port), words: wl.content.split('\n').filter(Boolean), threads };
+      return { out: `__PROC__${r.process.pid}`, code: 0 };
     };
 
-    game.runHydra = function () {
-      const j = game.hydraJob;
+    game.runHydra = function (proc) {
+      const j = proc && proc.job;
       if (!j) return;
       const { node, user, service, port, words, threads } = j;
       const real = node.users[user];
@@ -371,8 +380,7 @@ Wordlist disponible sur ton poste : /usr/share/wordlists/rockyou.txt`, code: 1
         hit = false;
         refus.push('[ERROR] Connexion root interdite (PermitRootLogin no) : ce compte ne tombe pas au dictionnaire.');
       }
-      const proc = game.processes.find(p => p.name === 'Hydra' && !p.result);
-      if (proc) proc.result = { found: hit, user, password: hit ? real : null };
+      proc.result = { found: hit, user, password: hit ? real : null };
       const lines = [
         'Hydra v9.5 (c) 2023 by van Hauser/THC & David Maciejak',
         'Hydra (https://github.com/vanhauser-thc/thc-hydra)',
@@ -402,7 +410,7 @@ Wordlist disponible sur ton poste : /usr/share/wordlists/rockyou.txt`, code: 1
       // bruit : une attaque rapide déclenche la détection plus vite
       if (game.startTrace) game.startTrace(threads >= 8 ? Math.round(game.traceTotal * 0.5) : game.traceTotal);
       for (const l of lines) game.say(l, hit && l.startsWith('[') && l.includes('password:') ? 'ok' : '');
-      game.hydraJob = null;
+      delete proc.job;
     };
 
     // ================================================================
@@ -460,20 +468,26 @@ Exemple :
         else if (p.startsWith('set ')) { const [, k, ...v] = p.split(/\s+/); opts[k.toUpperCase()] = v.join(' '); }
       }
       if (!mod) return { out: 'msfconsole: aucun module. Ajoute "use <module>;"', code: 1 };
-      const known = EXPLOITS.find(e => e.msf === mod);
+      let known = EXPLOITS.find(e => e.msf === mod);
+      if (mod === LABY_MODULE.msf) {
+        if (!game.inventaire.includes('exploit-0day')) {
+          return { out: '[-] Module fictif verrouillé : achat « exploit-0day » requis au Puits.', code: 1 };
+        }
+        known = LABY_MODULE;
+      }
       if (!known) return { out: `[-] Unknown module: ${mod}\nCherche-le avec searchsploit.`, code: 1 };
       const host = opts.RHOSTS || opts.RHOST;
       const node = needHost(host);
       const err = requireDiscovered(node, host);
       if (err) return { out: 'msfconsole: ' + err, code: 1 };
-      game.msfJob = { node, mod, opts, known };
       const r = game.spawn ? game.spawn('Metasploit', [mod]) : null;
-      if (r && !r.ok) return { out: r.msg, code: 1 };
-      return { out: `__PROC__${r ? r.process.pid : 0}`, code: 0 };
+      if (!r || !r.ok) return { out: r ? r.msg : 'msfconsole: gestionnaire de processus indisponible', code: 1 };
+      r.process.job = { node, mod, opts, known };
+      return { out: `__PROC__${r.process.pid}`, code: 0 };
     };
 
-    game.runMsf = function () {
-      const j = game.msfJob; if (!j) return;
+    game.runMsf = function (proc) {
+      const j = proc && proc.job; if (!j) return;
       const { node, mod, opts, known } = j;
       const lines = [
         '       =[ metasploit v6.4.0-dev ]',
@@ -483,10 +497,20 @@ Exemple :
         `RHOSTS => ${opts.RHOSTS || ''}`
       ];
       const port = known.port;
+      if (known.target && node.id !== known.target) {
+        lines.push('[-] Module fictif incompatible : réservé au laboratoire CODE.');
+        proc.result = { ok: false, module: mod };
+        for (const l of lines) game.say(l, 'err');
+        delete proc.job;
+        return;
+      }
       if (!node.porteOuverte(port)) {
         lines.push(`[-] ${node.ip}:${port} - Connection refused`);
         lines.push('[*] Auxiliary module execution completed');
-        for (const l of lines) game.say(l, 'err'); game.msfJob = null; return;
+        proc.result = { ok: false, module: mod };
+        for (const l of lines) game.say(l, 'err');
+        delete proc.job;
+        return;
       }
       let ok = false;
       if (mod.includes('ssh_login') || mod.includes('mysql_login') || mod.includes('tomcat_mgr_login')) {
@@ -509,8 +533,7 @@ Exemple :
           game.addCred(node.ip, 'root', node.users.root || 'toor');
         }
       }
-      const proc = game.processes.find(p => p.name === 'Metasploit' && !p.result);
-      if (proc) proc.result = { ok, module: mod };
+      proc.result = { ok, module: mod };
       if (ok) {
         node.crackedPorts.add(port);
         w().log('intrusion', `metasploit ${mod}`);
@@ -521,7 +544,7 @@ Exemple :
       lines.push('[*] Auxiliary module execution completed');
       if (game.startTrace) game.startTrace(game.traceTotal);
       for (const l of lines) game.say(l, l.startsWith('[+]') ? 'ok' : l.startsWith('[-]') ? 'err' : '');
-      game.msfJob = null;
+      delete proc.job;
     };
 
     // ================================================================
@@ -606,6 +629,11 @@ Exemple :
       if (a.includes('-F') || a.includes('--flush')) {
         const r = rootReq(); if (r) return r;
         n.firewallDown = true;
+        if (n.firewall) {
+          n.firewall.rules = [];
+          n.firewall.allow = [];
+          n.firewall.policy = 'ACCEPT';
+        }
         w().log('intrusion', 'iptables -F : filtrage vidé');
         game.record('firewall', { target: n.id, op: 'flush' });
         return narr(['iptables: règles vidées.', 'Politique INPUT repassée en ACCEPT : tous les ports sont joignables.', '', 'Relance :  nmap -sV ' + n.ip]);
@@ -629,12 +657,9 @@ Exemple :
         const rule = parseIptablesRule(a);
         if (!rule) return { out: 'usage: iptables -A INPUT -p tcp --dport <port> -j ACCEPT|DROP', code: 1 };
         if (!n.firewall) n.firewall = { policy: 'ACCEPT', allow: [22], rules: [] };
+        if (!Array.isArray(n.firewall.rules)) n.firewall.rules = [];
         n.firewall.rules.push(rule);
         n.firewallDown = false;
-        if (rule.action === 'ACCEPT' && !(n.firewall.allow || []).includes(rule.dport)) {
-          if (!n.firewall.allow) n.firewall.allow = [];
-          n.firewall.allow.push(rule.dport);
-        }
         w().log('intrusion', `iptables -A INPUT ${rule.proto} dport ${rule.dport} -j ${rule.action}`);
         game.record('firewall', { target: n.id, op: 'append', rule });
         return { out: `iptables: règle ajoutée (${rule.proto} dpt=${rule.dport} → ${rule.action}).`, code: 0 };
@@ -843,104 +868,120 @@ Exemple :
     const RELAIS_COST = 50;
     const RELAIS_LATENCE = 3000;
 
+    const RELAIS_RAPIDE = 1000;
+    const latenceRelais = () => game.inventaire.includes('relais-prive') ? RELAIS_RAPIDE : RELAIS_LATENCE;
+    const relaisActif = () => game.processes.find(p => p.name === 'Relais' && !p.done && !p.cancelled);
+
+    // Le saut n'est débité et appliqué qu'à la fin du processus : une
+    // annulation, une sauvegarde/reprise ou un manque de RAM ne coûte rien.
+    game.runRelais = function (proc) {
+      const job = proc && proc.job;
+      if (!job) return;
+      const rel = this.relais;
+      const node = w().node(job.cible);
+      const puits = w().node('puits');
+      if (rel.position !== job.position || rel.puitsAtteint || !node || (job.position === 2 && !puits)) {
+        this.say('relais: la chaîne a changé pendant le saut ; aucun crédit débité.', 'warn');
+        delete proc.job;
+        return;
+      }
+      if ((this.credits || 0) < RELAIS_COST) {
+        this.say('relais: crédits insuffisants à la fin du saut ; aucun crédit débité.', 'err');
+        delete proc.job;
+        return;
+      }
+      this.credits -= RELAIS_COST;
+      rel.position += 1;
+      rel.creditsDepenses += RELAIS_COST;
+      rel.dernierSaut = Date.now();
+      rel.historique.push({ saut: rel.position, cible: job.cible, cout: RELAIS_COST, latence: job.latence, ts: rel.dernierSaut });
+      node.discovered = true;
+      const home = w().home;
+      if (!home.links.includes(RELAIS_CHAIN[0])) home.links.push(RELAIS_CHAIN[0]);
+      w().log('transfert', 'relais saut ' + rel.position + ' → ' + job.cible + ' (' + node.ip + ')');
+      this.record('relais', { saut: rel.position, cible: job.cible, cout: RELAIS_COST, latence: job.latence });
+      this.say(`Relais saut ${rel.position}/3 effectué vers ${node.name} (${node.ip}). −${RELAIS_COST} cr · latence ${job.latence / 1000} s`, 'ok');
+      if (rel.position >= 3) {
+        rel.puitsAtteint = true;
+        puits.discovered = true;
+        // Les anciennes sauvegardes ne possédaient aucun compte sur le Puits.
+        if (!Object.prototype.hasOwnProperty.call(puits.users, 'joueur')) puits.users.joueur = 'puits';
+        if (!home.links.includes('puits')) home.links.push('puits');
+        this.say('>>> LE PUITS EST ATTEINT <<<', 'ok');
+        this.say('Connexion : ssh joueur@10.10.0.99  (mot de passe fictif : puits)', 'dim');
+        this.say('Le marché est accessible avec : marche', 'dim');
+      } else {
+        const suivant = w().node(RELAIS_CHAIN[rel.position]);
+        this.say(`Prochain saut : ${suivant.name} (${suivant.ip}) — relais sauter`, 'dim');
+      }
+      delete proc.job;
+    };
+
     cmds.relais = function (a) {
-      const g = global.LABYRINTHE && global.LABYRINTHE.game;
-      if (!g) return { out: 'relais: moteur de jeu indisponible', code: 1 };
-
+      const g = game;
       const sous = a[0];
-      const rel = g.relais || { position: 0, creditsDepenses: 0, puitsAtteint: false, historique: [] };
+      const rel = g.relais;
+      const enCours = relaisActif();
+      const latence = latenceRelais();
 
-      // ---- statut
       if (!sous || sous === 'status' || sous === 'statut') {
-        const puitsNode = w().node('puits');
         const lignes = [
           'CHENILLARD DE RELAIS — accès au Puits',
           '  Position : saut ' + rel.position + ' / 3',
           '  Crédits dépensés : ' + rel.creditsDepenses + ' cr',
-          '  Coût par saut : ' + RELAIS_COST + ' cr  ·  Latence : ' + (RELAIS_LATENCE / 1000) + ' s',
-          '  Rang requis : OPÉRATEUR (3000 xp) — actuel : ' + (g.xp || 0) + ' xp ' + ((g.xp || 0) >= 3000 ? '✓' : '✗'),
+          '  Coût par saut : ' + RELAIS_COST + ' cr · Latence : ' + (latence / 1000) + ' s',
+          '  Rang requis : OPÉRATEUR (3000 xp) — actuel : ' + (g.xp || 0) + ' xp ' + ((g.xp || 0) >= 3000 ? '✓' : '✗')
         ];
-        if (rel.position > 0) {
-          lignes.push('  Dernier saut : ' + new Date(rel.dernierSaut || 0).toLocaleTimeString());
+        if (enCours) lignes.push(`  Saut en cours : PID ${enCours.pid} (aucun débit avant l'arrivée)`);
+        if (rel.dernierSaut) lignes.push('  Dernier saut : ' + new Date(rel.dernierSaut).toLocaleTimeString());
+        if (rel.puitsAtteint) lignes.push('', 'Puits accessible : ssh joueur@10.10.0.99  (mot de passe fictif : puits)', 'Pour refaire la chaîne : relais recommencer');
+        else {
+          const suivant = w().node(RELAIS_CHAIN[rel.position]);
+          if (suivant) lignes.push('  Prochain relais : ' + suivant.name + ' (' + suivant.ip + ')');
         }
-        if (rel.position >= 3) {
-          lignes.push('  Puits : ATTEINT — ssh possible sur 10.10.0.99', '');
-          lignes.push('  ' + (puitsNode ? 'Node découvert et joignable' : 'Node introuvable'));
-        } else if (rel.position > 0) {
-          lignes.push('  Prochain relais : ' + RELAIS_CHAIN[rel.position] + ' (' + (w().node(RELAIS_CHAIN[rel.position]) && w().node(RELAIS_CHAIN[rel.position]).ip) + ')');
-        } else {
-          lignes.push('  Premier relais : ' + RELAIS_CHAIN[0] + ' (' + (w().node(RELAIS_CHAIN[0]) && w().node(RELAIS_CHAIN[0]).ip) + ')');
-        }
-        if ((g.xp || 0) < 3000) {
-          lignes.push('', 'Verrou : le rang OPÉRATEUR (3000 xp) est requis pour emprunter le chenillard.');
-        }
-        if (rel.puitsAtteint) {
-          lignes.push('', 'Le Puits est accessible depuis ton poste : ssh 10.10.0.99');
-        }
+        if ((g.xp || 0) < 3000) lignes.push('', 'Verrou : atteins le rang OPÉRATEUR pour emprunter le chenillard.');
         return { out: lignes.join('\n'), code: 0 };
       }
 
-      // ---- saut suivant
       if (sous === 'sauter' || sous === 'suivant') {
-        if ((g.xp || 0) < 3000) {
-          return { out: 'relais: verrou OPÉRATEUR — ' + (g.xp || 0) + ' / 3000 xp. Atteins le rang OPÉRATEUR d\'abord.', code: 1 };
-        }
-        if (rel.position >= 3) {
-          return { out: 'relais: le chenillard est complet — le Puits est déjà atteint.', code: 0 };
-        }
-        if ((g.credits || 0) < RELAIS_COST) {
-          return { out: 'relais: crédits insuffisants (' + RELAIS_COST + ' cr requis, ' + (g.credits || 0) + ' disponibles).', code: 1 };
-        }
-
-        const relaisId = RELAIS_CHAIN[rel.position];
-        const relaisNode = w().node(relaisId);
-        if (!relaisNode) {
-          return { out: 'relais: node ' + relaisId + ' introuvable dans le monde.', code: 1 };
-        }
-
-        g.credits = (g.credits || 0) - RELAIS_COST;
-        rel.position += 1;
-        rel.creditsDepenses += RELAIS_COST;
-        rel.dernierSaut = Date.now();
-        rel.historique.push({ saut: rel.position, cible: relaisId, cout: RELAIS_COST, latence: RELAIS_LATENCE, ts: Date.now() });
-
-        w().log('transfert', 'relais saut ' + rel.position + ' → ' + relaisId + ' (' + relaisNode.ip + ')');
-        game.record('relais', { saut: rel.position, cible: relaisId, cout: RELAIS_COST });
-
-        const lignes = [
-          'Relais saut ' + rel.position + '/3 effectué vers ' + relaisNode.name + ' (' + relaisNode.ip + ')',
-          '-' + RELAIS_COST + ' cr  ·  latence ' + (RELAIS_LATENCE / 1000) + ' s',
-        ];
-        if (rel.position >= 3) {
-          rel.puitsAtteint = true;
-          const puitsNode = w().node('puits');
-          puitsNode.discovered = true;
-          const joueurNode = w().node('joueur');
-          if (joueurNode && !joueurNode.links.includes('puits')) joueurNode.links.push('puits');
-          lignes.push('', '>>> LE PUITS EST ATTEINT <<<');
-          lignes.push('ssh possible : ssh 10.10.0.99  (marché d\'observation — T19)');
-          lignes.push('T19 : le marché du Puits sera accessible ici.');
-        } else {
-          const prochain = RELAIS_CHAIN[rel.position];
-          const prochainNode = w().node(prochain);
-          lignes.push('Prochain saut : ' + prochainNode.name + ' (' + prochainNode.ip + ')');
-          lignes.push('Commande : relais sauter');
-        }
-        return { out: lignes.join('\n'), code: 0 };
+        if ((g.xp || 0) < 3000) return { out: `relais: verrou OPÉRATEUR — ${g.xp || 0} / 3000 xp.`, code: 1 };
+        if (rel.puitsAtteint || rel.position >= 3) return { out: 'relais: le chenillard est complet — le Puits est déjà atteint.', code: 0 };
+        if (enCours) return { out: `relais: un saut est déjà en cours (PID ${enCours.pid}).`, code: 1 };
+        if ((g.credits || 0) < RELAIS_COST) return { out: `relais: crédits insuffisants (${RELAIS_COST} cr requis, ${g.credits || 0} disponibles).`, code: 1 };
+        const cible = RELAIS_CHAIN[rel.position];
+        const node = w().node(cible);
+        if (!node) return { out: `relais: node ${cible} introuvable dans le monde.`, code: 1 };
+        const r = g.spawn ? g.spawn('Relais', [cible]) : null;
+        if (!r || !r.ok) return { out: r ? r.msg : 'relais: gestionnaire de processus indisponible', code: 1 };
+        r.process.duration = latence;
+        r.process.job = { cible, position: rel.position, latence };
+        g.say(`Saut ${rel.position + 1}/3 vers ${node.name} : ${latence / 1000} s, ${RELAIS_COST} cr à l'arrivée.`, 'dim');
+        return { out: `__PROC__${r.process.pid}`, code: 0 };
       }
 
-      // ---- arreter
       if (sous === 'arreter' || sous === 'stop') {
-        if (rel.position === 0) {
-          return { out: 'relais: aucun saut effectué.', code: 0 };
+        if (enCours) {
+          g.kill(enCours.pid);
+          return { out: 'Saut annulé : aucun crédit débité. Reprendre : relais sauter.', code: 0 };
         }
-        return {
-          out: 'Chenillard arrêté au saut ' + rel.position + '/3.\n  Reprendre : relais sauter\n  Puits atteint : ' + (rel.puitsAtteint ? 'oui' : 'non'),
-          code: 0
-        };
+        return { out: `Aucun saut en cours. Position : ${rel.position}/3. Reprendre : relais sauter.`, code: 0 };
       }
 
-      return { out: 'usage: relais          (statut)\n       relais sauter   (prochain saut, 50 cr + 3 s de latence)\n       relais arreter  (stopper le chenillard)', code: 1 };
+      if (sous === 'recommencer' || sous === 'reconnecter') {
+        if (enCours) return { out: 'relais: arrête d’abord le saut en cours.', code: 1 };
+        if (w().current === 'puits') return { out: 'relais: quitte d’abord le Puits avec exit.', code: 1 };
+        if (!rel.position && !rel.puitsAtteint) return { out: 'relais: la chaîne est déjà au départ.', code: 0 };
+        rel.position = 0;
+        rel.puitsAtteint = false;
+        rel.dernierSaut = null;
+        w().home.links = w().home.links.filter(id => id !== 'puits' && id !== RELAIS_CHAIN[0]);
+        for (const id of [...RELAIS_CHAIN, 'puits']) {
+          const node = w().node(id);
+          if (node) node.discovered = false;
+        }
+        return { out: 'Chenillard remis au départ. Les anciens frais ne sont pas remboursés. Utilise relais sauter.', code: 0 };
+      }
+      return { out: 'usage: relais          (statut)\n       relais sauter   (prochain saut, 50 cr à l’arrivée)\n       relais arreter  (annuler le saut en cours)\n       relais recommencer (repartir du début)', code: 1 };
     };
 
     // ================================================================
@@ -953,23 +994,23 @@ Exemple :
       'wordlist-premium': {
         nom: 'Wordlist Premium',
         prix: 50,
-        desc: 'Wordlist étendue pour hydra (10 000 mots de passe courants).',
+        desc: 'Wordlist fictive étendue pour hydra (mots de passe de démonstration).',
         piege: false,
         effet: 'Ajoute /usr/share/wordlists/rockyou_premium.txt à ton poste.'
       },
       'relais-prive': {
         nom: 'Relais Privé',
         prix: 100,
-        desc: 'Réduit la latence du chenillard de 3 s à 1 s par saut.',
+        desc: 'Accélère les futurs sauts du chenillard.',
         piege: false,
-        effet: 'Latence relais : 3s → 1s.'
+        effet: 'Latence des prochains sauts : 3s → 1s (relais recommencer).'
       },
       'exploit-0day': {
         nom: 'Exploit 0-day',
         prix: 200,
-        desc: 'Exploit pour cible à fort valeur. Livré sans garantie.',
+        desc: 'Module Metasploit entièrement fictif pour le laboratoire CODE.',
         piege: false,
-        effet: 'Débloque un module msf fictif sur la prochaine cible appropriée.'
+        effet: 'Débloque exploit/labyrinthe/http/entrainement sur le laboratoire CODE.'
       },
       'nettoyeur-magique': {
         nom: 'Nettoyeur Magique',
@@ -981,40 +1022,94 @@ Exemple :
     };
 
     function tauxChangeSats() {
-      // Taux : crédits pour 1 sat. Fluctue entre 800 et 1200 (sinus ~30 min).
-      const base = 1000;
-      const variation = 200;
+      // La campagne actuelle a des récompenses finies : 800–1200 cr/sat
+      // rendait même l'article le moins cher inaccessible. Cette fourchette
+      // de 40–60 cr/sat conserve le choix économique sans bloquer le marché.
+      const base = 50;
+      const variation = 10;
       const phase = (Date.now() % 1800000) / 1800000; // 0..1 sur 30 min
       return Math.round(base + Math.sin(phase * 2 * Math.PI) * variation);
     }
 
+    function parentsDisponibles(node, path) {
+      const parties = path.split('/').filter(Boolean);
+      parties.pop();
+      let parent = '';
+      for (const partie of parties) {
+        parent += '/' + partie;
+        const entry = node.get(parent);
+        if (entry && entry.type !== 'dir') return false;
+      }
+      return true;
+    }
+
+    function livrerWordlist(home) {
+      const base = home.get('/usr/share/wordlists/rockyou.txt');
+      const premiumPath = '/usr/share/wordlists/rockyou_premium.txt';
+      const existant = home.get(premiumPath);
+      const mots = new Set([base, existant].filter(file => file && file.type === 'file')
+        .flatMap(file => file.content.split('\n')).filter(Boolean));
+      for (const mot of ['P@ssw0rd!', 'formation2026', 'labyrinthe2026', 'collines2026', 'bienvenue2026']) mots.add(mot);
+      if (existant) existant.content = [...mots].join('\n');
+      else home.addFile(premiumPath, [...mots].join('\n'), { owner: 'joueur' });
+    }
+
+    // Migration unique des anciens achats qui n'avaient pas livré la wordlist.
+    // Ne jamais remplacer un fichier déjà présent ou un parent non-répertoire.
+    game.migrerMarche = function () {
+      const home = this.world.home;
+      const path = '/usr/share/wordlists/rockyou_premium.txt';
+      if (this.inventaire.includes('wordlist-premium')) {
+        const existant = home.get(path);
+        if (existant && existant.type !== 'file') return false;
+        if (!existant) {
+          if (!parentsDisponibles(home, path)) return false;
+          livrerWordlist(home);
+        }
+      }
+      return true;
+    };
+
     function ajouterInventaire(g, idItem) {
       if (!g.inventaire) g.inventaire = [];
       if (!g.achats) g.achats = {};
+      const premierAchat = !Object.prototype.hasOwnProperty.call(g.achats, idItem);
       g.inventaire.push(idItem);
       if (!g.achats[idItem] || typeof g.achats[idItem] !== 'object') {
         g.achats[idItem] = { qte: 1, ts: Date.now() };
       } else {
-        g.achats[idItem].qte += 1;
+        g.achats[idItem].qte = (Number.isSafeInteger(g.achats[idItem].qte) ? g.achats[idItem].qte : 0) + 1;
         g.achats[idItem].ts = Date.now();
       }
+      if (premierAchat) g.cred = (g.cred || 0) + 1;
       const item = MARCHE_ITEMS[idItem];
-      if (item && item.piege) {
-        // Créer le fichier piégé sur le poste du joueur
-        const home = g.world.home;
-        const dir = '/home/joueur/achats';
-        if (!home.get(dir)) home.addFile(dir, '', { owner: 'joueur' });
-        const path = dir + '/' + idItem + '.sh';
-        home.addFile(path,
+      const home = g.world.home;
+      const dir = '/home/joueur/achats';
+      // addFile crée les dossiers parents ; ne pas créer « achats » comme un
+      // fichier vide, ce qui empêchait ensuite de s'y rendre avec cd ou ls.
+      if (item.piege) {
+        const chemin = dir + '/' + idItem + '.sh';
+        if (!home.get(chemin)) home.addFile(chemin,
           '#!/bin/bash\n# Nettoyeur Magique — Version du Puits\n# ATTENTION : ce script provient du marché noir.\n# Exécuter ce script peut compromettre votre système.\necho "Nettoyage des traces en cours..."\necho "Traces effacées."\necho "Porte dérobée installée (simulé)."\n',
           { owner: 'joueur', executable: true });
         if (g.say) g.say('⚠ Article piégé détecté : un fichier suspect a été placé dans /home/joueur/achats/', 'warn');
+      } else {
+        let texte = `${item.nom}\n${item.effet}\n`;
+        if (idItem === 'wordlist-premium') {
+          livrerWordlist(home);
+          texte += '\nUtilisation : hydra -l <compte> -P /usr/share/wordlists/rockyou_premium.txt ssh://<ip>\n';
+        } else if (idItem === 'exploit-0day') {
+          texte += `\nModule fictif, limité au laboratoire CODE :\nmsfconsole -x "use ${LABY_MODULE.msf}; set RHOSTS 10.10.2.10; exploit"\n`;
+        } else if (idItem === 'relais-prive') {
+          texte += '\nPour refaire la chaîne : relais recommencer puis relais sauter.\n';
+        }
+        const chemin = dir + '/' + idItem + '.txt';
+        if (!home.get(chemin)) home.addFile(chemin, texte, { owner: 'joueur' });
       }
     }
 
     cmds.marche = function (a) {
-      const g = global.LABYRINTHE && global.LABYRINTHE.game;
-      if (!g) return { out: 'marché: moteur de jeu indisponible', code: 1 };
+      const g = game;
 
       // Verrou : Puits atteint
       if (!g.relais || !g.relais.puitsAtteint) {
@@ -1049,11 +1144,19 @@ Exemple :
       if (sous === 'acheter') {
         const id = a[1];
         if (!id) return { out: 'usage: marché acheter <id>', code: 1 };
-        const item = MARCHE_ITEMS[id];
+        const item = Object.prototype.hasOwnProperty.call(MARCHE_ITEMS, id) ? MARCHE_ITEMS[id] : null;
         if (!item) return { out: `marché: article '${id}' introuvable.`, code: 1 };
         if ((g.sats || 0) < item.prix) {
           return { out: `marché: sats insuffisants (${item.prix} requis, ${g.sats || 0} disponibles).`, code: 1 };
         }
+        const home = g.world.home;
+        const chemin = '/home/joueur/achats/' + id + (item.piege ? '.sh' : '.txt');
+        if (!parentsDisponibles(home, chemin)) return { out: 'marché: le chemin /home/joueur/achats est bloqué par un fichier. Déplace-le avant d’acheter.', code: 1 };
+        if (home.get(chemin) && home.get(chemin).type !== 'file') return { out: `marché: ${chemin} n’est pas un fichier.`, code: 1 };
+        const premiumPath = '/usr/share/wordlists/rockyou_premium.txt';
+        const premium = home.get(premiumPath);
+        if (id === 'wordlist-premium' && (!parentsDisponibles(home, premiumPath) || (premium && premium.type !== 'file'))) return { out: 'marché: le chemin de la wordlist est occupé.', code: 1 };
+        const premierAchat = !Object.prototype.hasOwnProperty.call(g.achats || {}, id);
         g.sats = (g.sats || 0) - item.prix;
         ajouterInventaire(g, id);
         g.record('achat-puits', { id: id, prix: item.prix, piege: item.piege });
@@ -1063,9 +1166,10 @@ Exemple :
         }
         const lignes = [
           `Achat effectué : ${item.nom} (${item.prix} sats)`,
-          `Solde restant : ${g.sats} sats`,
+          `Solde restant : ${g.sats} sats${premierAchat ? ' · Créd du Puits +1' : ''}`,
           '',
-          item.effet
+          item.effet,
+          'Fichier livré : ' + chemin
         ];
         if (item.piege) {
           lignes.push('');
@@ -1076,8 +1180,8 @@ Exemple :
 
       // ---- changer (crédits → sats)
       if (sous === 'changer' || sous === 'exchange') {
-        const montant = parseInt(a[1], 10);
-        if (!montant || montant <= 0) {
+        const montant = Number(a[1]);
+        if (!/^\d+$/.test(a[1] || '') || !Number.isSafeInteger(montant) || montant <= 0) {
           return { out: 'usage: marché changer <montant en crédits>', code: 1 };
         }
         if ((g.credits || 0) < montant) {
@@ -1088,11 +1192,14 @@ Exemple :
         if (satsRecus === 0) {
           return { out: `marché: ${montant} crédits ne suffisent pas pour 1 sat (taux : ${taux} cr/sat).`, code: 1 };
         }
-        g.credits = (g.credits || 0) - montant;
+        if (!Number.isSafeInteger((g.sats || 0) + satsRecus)) return { out: 'marché: solde en sats trop élevé.', code: 1 };
+        const utilises = satsRecus * taux;
+        const reste = montant - utilises;
+        g.credits = (g.credits || 0) - utilises;
         g.sats = (g.sats || 0) + satsRecus;
-        g.record('change-sats', { montants: montant, sats: satsRecus, taux });
+        g.record('change-sats', { montants: utilises, demande: montant, sats: satsRecus, taux });
         return {
-          out: `Change effectué : ${montant} crédits → ${satsRecus} sats (taux : ${taux} cr/sat).\n  Solde : ${g.credits} crédits · ${g.sats} sats`,
+          out: `Change effectué : ${utilises} crédits → ${satsRecus} sats (taux : ${taux} cr/sat).${reste ? `\n  ${reste} crédits non convertis conservés.` : ''}\n  Solde : ${g.credits} crédits · ${g.sats} sats`,
           code: 0
         };
       }
@@ -1103,10 +1210,10 @@ Exemple :
           return { out: 'marché: ton inventaire est vide. Achetez sur le marché du Puits.', code: 0 };
         }
         const lignes = ['TON INVENTAIRE (Marché du Puits)'];
-        const counts = {};
+        const counts = Object.create(null);
         for (const id of g.inventaire) counts[id] = (counts[id] || 0) + 1;
         for (const [id, qte] of Object.entries(counts)) {
-          const it = MARCHE_ITEMS[id];
+          const it = Object.prototype.hasOwnProperty.call(MARCHE_ITEMS, id) ? MARCHE_ITEMS[id] : null;
           lignes.push(`  ${id.padEnd(20)} ×${qte}  ${it ? it.nom : id}  ${it && it.piege ? '⚠ PIÉGÉ' : ''}`);
         }
         lignes.push('');
@@ -1116,26 +1223,26 @@ Exemple :
 
       return { out: 'usage: marché            (liste)\n       marché acheter <id>\n       marché changer <crédits>\n       marché inventaire', code: 1 };
     };
+    cmds['marché'] = cmds.marche;
 
     // ================================================================
     // RUN — exécuter un fichier acheté (détection des pièges)
     // ================================================================
     cmds.run = function (a) {
-      const g = global.LABYRINTHE && global.LABYRINTHE.game;
-      if (!g) return { out: 'run: moteur de jeu indisponible', code: 1 };
+      const g = game;
       if (!a.length) return { out: 'usage: run <fichier>', code: 1 };
 
       const path = a[0];
       const n = w().target;
-      const abs = E.normPath(n.cwd || '/home/joueur', path);
+      const abs = E.normPath(w().cwd, path);
       const f = n.get(abs);
       if (!f || f.type !== 'file') {
         return { out: `run: ${path}: fichier introuvable`, code: 1 };
       }
 
       // Vérifier si c'est un article piégé du marché
-      const piegeId = Object.entries(MARCHE_ITEMS).find(([id]) =>
-        abs.includes('/achats/' + id + '.sh') || abs.includes('/achats/' + id)
+      const piegeId = n === w().home && Object.entries(MARCHE_ITEMS).find(([id, item]) =>
+        item.piege && abs === '/home/joueur/achats/' + id + '.sh'
       );
       if (piegeId) {
         const [id] = piegeId;
@@ -1148,8 +1255,9 @@ Exemple :
           g.respect = Math.max(0, (g.respect || 0) - 5);
           w().log('intrusion', `run ${abs} : porte dérobée activée (piège du Puits)`);
           game.record('piege-declenche', { id, fichier: abs });
+          const tache = declencherTacheNoire(g);
           return {
-            out: `╔═════════════════════════════════════════════════════╗\n║  ⚠ PORTE DÉROBÉE ACTIVÉE — PIÈGE DU PUITS            ║\n╚═════════════════════════════════════════════════════╝\n\nLe script "${item.nom}" a installé une porte dérobée simulée.\n\n  −5 sats  ·  −5 respect\n\nLeçon : ne jamais exécuter un binaire du marché noir sans l’avoir audité.\n`,
+            out: `╔═════════════════════════════════════════════════════╗\n║  ⚠ PORTE DÉROBÉE ACTIVÉE — PIÈGE DU PUITS            ║\n╚═════════════════════════════════════════════════════╝\n\nLe script "${item.nom}" a installé une porte dérobée simulée.\n\n  −5 sats  ·  −5 respect\n${tache ? '\n⚠ TÂCHE-NOIRE a masqué une note fictive. Tape tache-noire pour la récupérer.\n' : ''}\nLeçon : ne jamais exécuter un binaire du marché noir sans l’avoir audité.\n`,
             code: 0
           };
         }
@@ -1171,13 +1279,15 @@ Exemple :
       if (!g.incidentsNoirs) g.incidentsNoirs = [];
       g.incidentsNoirs.push({ type, ts: Date.now(), detail: detail || {} });
       if (g.incidentsNoirs.length > 200) g.incidentsNoirs.shift();
-      g.record('incident-noir', { type, detail });
+      g.record('incident-noir', { incidentType: type, detail });
       verifierGardien(g);
     }
 
     function verifierGardien(g) {
-      // Le GARDIEN enquête quand il y a 2 incidents noirs
-      const nb = g.incidentsNoirs ? g.incidentsNoirs.length : 0;
+      // Chaque enquête traite ses incidents une seule fois ; deux nouveaux
+      // incidents peuvent ensuite déclencher une nouvelle convocation.
+      const incidents = g.incidentsNoirs || [];
+      const nb = incidents.filter(i => i && !i.traite).length;
       const ge = g.gardienEnquete || { active: false, incidents: 0, etat: 0, ts: null };
       if (!ge.active && nb >= 2) {
         ge.active = true;
@@ -1195,33 +1305,106 @@ Exemple :
     }
 
     cmds.gardien = function (a) {
-      const g = global.LABYRINTHE && global.LABYRINTHE.game;
-      if (!g) return { out: 'gardien: moteur de jeu indisponible', code: 1 };
-      const ge = g.gardienEnquete || { active: false, incidents: 0, etat: 0, ts: null };
+      const g = game;
+      const ge = g.gardienEnquete || (g.gardienEnquete = { active: false, incidents: 0, etat: 0, ts: null });
       const nb = g.incidentsNoirs ? g.incidentsNoirs.length : 0;
+      const choix = a[0];
+
+      if (choix === 'cooperer' || choix === 'coopérer' || choix === 'resister' || choix === 'résister') {
+        if (!ge.active) return { out: 'gardien: aucune enquête à résoudre.', code: 1 };
+        const cooperer = choix === 'cooperer' || choix === 'coopérer';
+        const lignes = [];
+        if (cooperer) {
+          const frais = Math.min(100, Math.max(0, g.credits || 0));
+          const respect = Math.min(2, Math.max(0, g.respect || 0));
+          g.credits -= frais;
+          g.respect -= respect;
+          lignes.push('Coopération acceptée. Enquête close.', `  −${frais} crédits · −${respect} respect`);
+          g.record('gardien-cooperation', { frais, respect });
+        } else {
+          const saisie = Math.random() < 0.6;
+          const respect = Math.min(5, Math.max(0, g.respect || 0));
+          g.respect -= respect;
+          const bonus = ge.aResiste ? 0 : 2;
+          if (bonus) { g.cred = (g.cred || 0) + bonus; ge.aResiste = true; }
+          const nombre = saisie ? g.inventaire.length : 0;
+          if (saisie) g.inventaire = [];
+          lignes.push('Résistance : enquête close.', `  −${respect} respect${bonus ? ' · Créd du Puits +2' : ''}`);
+          lignes.push(saisie
+            ? `  GARDIEN a saisi l'inventaire (${nombre} article(s)) : bonus de relais et module verrouillés. Les fichiers existants restent intacts.`
+            : '  Tu échappes à la saisie de ton inventaire.');
+          g.record('gardien-resistance', { saisie, nombre, respect, cred: bonus });
+        }
+        for (const incident of g.incidentsNoirs || []) if (incident) incident.traite = true;
+        ge.active = false;
+        ge.etat = 0;
+        ge.ts = null;
+        return { out: lignes.join('\n'), code: 0 };
+      }
+      if (choix && choix !== 'status' && choix !== 'statut') {
+        return { out: 'usage: gardien [statut|cooperer|resister]', code: 1 };
+      }
 
       const lignes = [
-        'GARDIEN — enquête en cours',
+        'GARDIEN — statut',
         `  Incidents noirs détectés : ${nb}`,
         `  Enquête active : ${ge.active ? 'OUI' : 'NON'}`,
       ];
       if (ge.active) {
-        const etatTxt = ['—', 'convocation', 'saisie d’outils', 'fermeture de session'][ge.etat] || 'inconnu';
-        lignes.push(`  Étape : ${etatTxt}`);
+        lignes.push('  Étape : convocation');
         if (ge.ts) lignes.push(`  Depuis : ${new Date(ge.ts).toLocaleString()}`);
-        lignes.push('');
-        lignes.push('  Tapez "gardien cooperer" pour coopérer (perte modérée).');
-        lignes.push('  Tapez "gardien resister" pour résister (risque de saisie totale).');
+        lignes.push('', '  gardien cooperer : jusqu’à −100 crédits et −2 respect.',
+          '  gardien resister : jusqu’à −5 respect et 60 % de risque de saisie de l’inventaire.',
+          '  Les fichiers existants ne sont pas supprimés.');
       } else {
-        lignes.push('');
-        lignes.push('  Aucune enquête en cours. Restez propre.');
+        lignes.push('', '  Aucune enquête en cours. Deux nouveaux incidents peuvent en ouvrir une.');
       }
       return { out: lignes.join('\n'), code: 0 };
     };
 
+    function declencherTacheNoire(g) {
+      const tn = g.tacheNoire || (g.tacheNoire = { active: false, fichiersChiffres: [], rancon: 0, ts: null });
+      if (tn.active || Math.random() >= 0.4) return false;
+      const chemin = '/home/joueur/bloc_notes.txt';
+      const fichier = g.world.home.get(chemin);
+      if (!fichier || fichier.type !== 'file') return false;
+      const ts = Date.now();
+      const marqueur = `[SIMULATION TÂCHE-NOIRE ${ts}]\nLe contenu de cette note est temporairement masqué.\nUtilise tache-noire pour connaître les options de récupération.\n`;
+      // La copie est dans la sauvegarde du jeu et ne concerne jamais le disque
+      // réel. Une modification manuelle après l'attaque ne sera pas écrasée.
+      tn.sauvegardes = { [chemin]: { contenu: fichier.content, marqueur } };
+      tn.active = true;
+      tn.fichiersChiffres = [chemin];
+      tn.rancon = 20;
+      tn.ts = ts;
+      tn.refusee = false;
+      fichier.content = marqueur;
+      g.record('tache-noire-attaque', { fichiers: [chemin], rancon: tn.rancon });
+      return true;
+    }
+
+    function restaurerTacheNoire(g, tn) {
+      let restaures = 0, conserves = 0;
+      for (const [chemin, copie] of Object.entries(tn.sauvegardes || {})) {
+        const fichier = g.world.home.get(chemin);
+        if (copie && typeof copie.contenu === 'string' && fichier && fichier.type === 'file' && fichier.content === copie.marqueur) {
+          fichier.content = copie.contenu;
+          restaures++;
+        } else {
+          conserves++;
+        }
+      }
+      tn.active = false;
+      tn.fichiersChiffres = [];
+      tn.rancon = 0;
+      tn.ts = null;
+      tn.refusee = false;
+      tn.sauvegardes = {};
+      return { restaures, conserves };
+    }
+
     cmds['tache-noire'] = function (a) {
-      const g = global.LABYRINTHE && global.LABYRINTHE.game;
-      if (!g) return { out: 'tache-noire: moteur de jeu indisponible', code: 1 };
+      const g = game;
       const tn = g.tacheNoire || { active: false, fichiersChiffres: [], rancon: 0, ts: null };
 
       const sous = a[0];
@@ -1235,8 +1418,10 @@ Exemple :
           lignes.push(`  Rançon demandée : ${tn.rancon} sats`);
           if (tn.ts) lignes.push(`  Depuis : ${new Date(tn.ts).toLocaleString()}`);
           lignes.push('');
-          lignes.push('  Tapez "tache-noire payer" pour payer la rançon.');
-          lignes.push('  Tapez "tache-noire refuser" pour refuser (perte des fichiers).');
+          lignes.push('  tache-noire payer : restaurer la note pour ' + tn.rancon + ' sats (simulation).');
+          lignes.push('  tache-noire nettoyer : restaurer sans payer à partir de 5000 xp.');
+          lignes.push('  tache-noire refuser : refuser pour l’instant, sans effacer la note.');
+          lignes.push('  Dans la réalité, payer une rançon ne garantit jamais la récupération.');
         } else {
           lignes.push('');
           lignes.push('  Aucune rançon en cours.');
@@ -1244,44 +1429,55 @@ Exemple :
         return { out: lignes.join('\n'), code: 0 };
       }
 
-      if (sous === 'payer') {
+      if (sous === 'payer' || sous === 'nettoyer') {
         if (!tn.active) return { out: 'tache-noire: aucune rançon active.', code: 1 };
-        if ((g.sats || 0) < tn.rancon) {
+        if (sous === 'payer' && (g.sats || 0) < tn.rancon) {
           return { out: `tache-noire: sats insuffisants (${tn.rancon} requis, ${g.sats || 0} disponibles).`, code: 1 };
         }
-        g.sats = (g.sats || 0) - tn.rancon;
-        g.tacheNoire.active = false;
-        g.tacheNoire.fichiersChiffres = [];
-        g.tacheNoire.rancon = 0;
-        g.tacheNoire.ts = null;
-        g.record('tache-noire-payee', {});
+        if (!tn.sauvegardes || !Object.keys(tn.sauvegardes).length) {
+          if (sous === 'payer') return { out: 'tache-noire: aucune copie disponible dans cette ancienne sauvegarde ; aucun paiement effectué. Utilise tache-noire nettoyer pour fermer l’alerte.', code: 1 };
+          restaurerTacheNoire(g, tn);
+          return { out: 'Ancienne alerte Tâche-Noire fermée : aucune copie ni aucun fichier n’a été modifié.', code: 0 };
+        }
+        if (sous === 'nettoyer' && (g.xp || 0) < 5000) {
+          return { out: `tache-noire: nettoyage réservé à 5000 xp (${g.xp || 0} actuellement).`, code: 1 };
+        }
+        const recuperable = Object.entries(tn.sauvegardes).some(([chemin, copie]) => {
+          const fichier = g.world.home.get(chemin);
+          return copie && fichier && fichier.type === 'file' && fichier.content === copie.marqueur;
+        });
+        if (sous === 'payer' && !recuperable) return { out: 'tache-noire: les fichiers masqués ont été modifiés ou supprimés ; aucun paiement effectué.', code: 1 };
+        const rancon = sous === 'payer' ? tn.rancon : 0;
+        if (rancon) g.sats -= rancon;
+        const resultat = restaurerTacheNoire(g, tn);
+        g.record(sous === 'payer' ? 'tache-noire-payee' : 'tache-noire-nettoyee', { rancon, ...resultat });
         return {
-          out: `Rançon payée (${tn.rancon} sats). Vos fichiers sont déchiffrés.\n  La Tâche-Noire reste à l’affût.`,
+          out: `${sous === 'payer' ? `Rançon simulée payée (${rancon} sats).` : 'Nettoyage simulé terminé.'} ${resultat.restaures} fichier(s) restauré(s).${resultat.conserves ? ` ${resultat.conserves} fichier(s) modifié(s) ou supprimé(s) laissé(s) en l’état.` : ''}\n  Dans la réalité, le paiement ne garantit pas la récupération.`,
           code: 0
         };
       }
 
       if (sous === 'refuser') {
         if (!tn.active) return { out: 'tache-noire: aucune rançon active.', code: 1 };
-        const perdus = tn.fichiersChiffres.length;
-        g.tacheNoire.active = false;
-        g.tacheNoire.fichiersChiffres = [];
-        g.tacheNoire.rancon = 0;
-        g.tacheNoire.ts = null;
-        g.respect = Math.max(0, (g.respect || 0) - 5);
-        g.record('tache-noire-refusee', { perdus });
-        return {
-          out: `Vous refusez de payer. ${perdus} fichier(s) perdu(s) définitivement.\n  −5 respect. La Tâche-Noire disparaît... pour l’instant.`,
-          code: 0
-        };
+        if (tn.refusee) return { out: 'Rançon déjà refusée. La note reste masquée ; payer ou nettoyer restent possibles.', code: 0 };
+        tn.refusee = true;
+        g.record('tache-noire-refusee', {});
+        return { out: 'Tu refuses de payer pour l’instant. La note reste masquée, sans suppression ; elle peut être restaurée avec tache-noire payer ou nettoyer.', code: 0 };
       }
 
-      return { out: 'usage: tache-noire        (statut)\n       tache-noire payer   (payer la rançon en sats)\n       tache-noire refuser (perdre les fichiers chiffrés)', code: 1 };
+      return { out: 'usage: tache-noire          (statut)\n       tache-noire payer     (payer en sats, simulation)\n       tache-noire nettoyer  (restaurer à partir de 5000 xp)\n       tache-noire refuser   (ne pas payer pour l’instant)', code: 1 };
+
     };
+    cmds['tâche-noire'] = cmds['tache-noire'];
 
     cmds.fin = function (a) {
-      const g = global.LABYRINTHE && global.LABYRINTHE.game;
-      if (!g) return { out: 'fin: moteur de jeu indisponible', code: 1 };
+      const g = game;
+      if (!g.finished) {
+        return {
+          out: `Campagne en cours — aucune fin déterminée. Termine les ${global.Campaign.MISSIONS.length} missions avant de choisir ton issue.`,
+          code: 1
+        };
+      }
       const respect = g.respect || 0;
       const cred = g.cred || 0;
 
@@ -1308,14 +1504,14 @@ Exemple :
         lignes.push('');
         lignes.push('>>> FIN BLANCHE <<<');
         lignes.push('  Vous avez agi dans l’intérêt général.');
-        lignes.push('  Le GARDIEN reconnaît votre travail. Rapport validé.');
-        lignes.push('  Certification white hat obtenue.');
+        lignes.push('  Dans cette histoire, le GARDIEN reconnaît votre travail.');
+        lignes.push('  Distinction narrative : white hat.');
       } else if (fin === 'noire') {
         lignes.push('');
         lignes.push('>>> FIN NOIRE <<<');
         lignes.push('  Vous avez trop cédé aux tentations du Puits.');
-        lignes.push('  La Tâche-Noire vous a marqué.');
-        lignes.push('  Accès aux contrats noirs débloqué définitivement.');
+        lignes.push('  Le Puits vous a marqué.');
+        lignes.push('  Cette issue est narrative ; aucun nouveau contrat n’est débloqué.');
       } else {
         lignes.push('');
         lignes.push('  Campagne en cours — aucune fin déterminée encore.');
@@ -1452,10 +1648,13 @@ Exemple :
       const n = needHost(host);
       const err = requireDiscovered(n, host);
       if (err) return { out: 'sqlmap: ' + err, code: 1 };
-      game.record('sqlmap', { target: n.id, path });
       const dbPort = n.openPorts().find(p => ['mysql', 'postgresql', 'ms-sql-s'].includes(n.ports[p].service));
       const webFile = n.get('/var/www/html' + path) || n.get(path);
-      const vulnerable = webFile && /SQL|concaténation|injectable|vuln/i.test(webFile.content || '');
+      const hasParameter = new URL(url).searchParams.has('id');
+      const vulnerable = !!(hasParameter && webFile && /SQL|concaténation|injectable|vuln/i.test(webFile.content || ''));
+      // Les contrats récompensent la découverte d'une faille, pas simplement
+      // l'exécution de sqlmap sur une page absente ou sans paramètre.
+      game.record(vulnerable ? 'sqlmap' : 'sqlmap-fail', { target: n.id, path });
       const lines = [
         '        ___', '       __H__', ' ___ ___| |_____ ___ ___  {1.8}', '|_ -| . | |     | .\'| . |',
         '|___|_  |_|_|_|_|__,|  _|', '      |_|           |_|   http://sqlmap.org', '',

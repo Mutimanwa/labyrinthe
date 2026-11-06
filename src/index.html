@@ -17,6 +17,8 @@
     <button class="ico" id="icoSwap" title="Inverser terminal / affichage">⇄</button>
     <button class="ico" id="icoSave" title="Sauvegarder">▣</button>
     <button class="ico" id="icoHelp" title="Aide">?</button>
+    <button class="ico" id="icoIntro" type="button" title="Revoir l’introduction" aria-label="Revoir l’introduction" aria-controls="introOverlay">ⓘ</button>
+    <button class="ico" id="icoTutorial" title="Guide des premiers pas" aria-label="Guide des premiers pas" aria-controls="panelTutorial" aria-expanded="false">◎</button>
     <button class="ico" id="icoSound" title="Son : activer / couper">♪</button>
     <button class="ico" id="icoMail" title="Poste — boîte de réception">✉</button>
     <span id="worldClock" title="Heure du monde — 1 s réelle = 1 min dans le Labyrinthe">—</span>
@@ -42,6 +44,20 @@
           <div class="ramprocs"><span id="ramProcs">0</span> processus</div>
         </div>
       </div>
+
+      <section class="panel" id="panelTutorial" aria-labelledby="tutorialHeading" hidden>
+        <div class="phead"><span id="tutorialHeading">GUIDE INITIAL</span><span class="sp"></span><span id="tutorialProgress"></span></div>
+        <div class="pbody tutorial-body" aria-live="polite">
+          <div id="tutorialTitle" class="tutorial-title"></div>
+          <p id="tutorialText"></p>
+          <code id="tutorialCommand" class="tutorial-command"></code>
+          <p id="tutorialHint" class="tutorial-hint"></p>
+          <div class="tutorial-actions">
+            <button id="tutorialInsert" type="button">INSÉRER</button>
+            <button id="tutorialSkip" type="button">PASSER</button>
+          </div>
+        </div>
+      </section>
 
       <div id="procStack"></div>
 
@@ -107,6 +123,128 @@
   </div>
 </div>
 
+<!-- ======================= INTRODUCTION NARRATIVE ======================= -->
+<section id="introOverlay" class="intro-overlay" role="dialog" aria-modal="true" aria-labelledby="introTitle0" hidden>
+  <div class="intro-shell">
+    <header class="intro-header">
+      <div class="intro-brand"><span class="intro-brand-mark" aria-hidden="true">L<span>_</span></span><div><b>LABYRINTHE</b><small>DOSSIER D’ACCUEIL / 001</small></div></div>
+      <div class="intro-header-right"><span class="intro-simulation"><i></i> RÉSEAU SIMULÉ</span><button id="introSkip" class="intro-skip" type="button">PASSER L’INTRODUCTION <span aria-hidden="true">↗</span></button></div>
+    </header>
+
+    <main class="intro-content" tabindex="0" aria-label="Contenu de l’introduction">
+      <section class="intro-page" data-intro-page="0">
+        <div class="intro-columns">
+          <div class="intro-copy">
+            <div class="intro-kicker"><span>01 / TRANSMISSION</span><span class="intro-kicker-line"></span><span>MESSAGE REÇU</span></div>
+            <h1 id="introTitle0">Une porte vient<br>de <em>s’ouvrir.</em></h1>
+            <p class="intro-lead">Un message t’attend à l’entrée du Labyrinthe.</p>
+            <article class="intro-message" aria-label="Message du Cartographe">
+              <div class="intro-message-head"><span><i></i> TRANSMISSION ENTRANTE</span><span>EXP. CARTOGRAPHE</span></div>
+              <div class="intro-message-text">
+                <p>À toi qui viens d’entrer,</p>
+                <p>Si tu lis ces lignes, c’est que la porte est encore ouverte. J’ai laissé une carte pour celles et ceux qui veulent comprendre ce qui se cache derrière les écrans.</p>
+                <p>Chaque machine a une histoire. Chaque commande laisse une trace. Observe, pose des questions et vérifie ce que tu trouves.</p>
+                <p class="intro-signature">— Le Cartographe</p>
+              </div>
+            </article>
+            <p class="intro-safety"><span aria-hidden="true">◇</span> LABYRINTHE est un jeu d’apprentissage : machines, mots de passe et commandes de piratage sont fictifs. Aucun réseau réel n’est ciblé.</p>
+          </div>
+          <aside class="intro-signal" aria-label="Informations sur la transmission">
+            <div class="intro-aside-top"><span>ANALYSE DU SIGNAL</span><span>● REÇU</span></div>
+            <div class="intro-network" aria-hidden="true">
+              <svg viewBox="0 0 360 280" fill="none">
+                <defs><linearGradient id="introSignalGradient" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#00d9ff"/><stop offset="1" stop-color="#046075"/></linearGradient></defs>
+                <circle cx="180" cy="140" r="97" stroke="#164555" stroke-dasharray="3 8"/>
+                <circle cx="180" cy="140" r="64" stroke="#0e3441"/>
+                <circle cx="180" cy="140" r="37" stroke="#0b3b4b"/>
+                <path d="M33 198 98 159 180 140 241 77 326 98M98 159 110 72 180 140 260 203 326 98M110 72 241 77M33 198 105 231 180 140" stroke="#1a5261" stroke-width="1"/>
+                <path d="M33 198 98 159 180 140 241 77 326 98" stroke="url(#introSignalGradient)" stroke-width="2"/>
+                <circle cx="33" cy="198" r="4" fill="#00d9ff"/><circle cx="98" cy="159" r="5" fill="#03161c" stroke="#00d9ff" stroke-width="2"/>
+                <circle cx="110" cy="72" r="4" fill="#092731" stroke="#2b7082"/><circle cx="241" cy="77" r="5" fill="#03161c" stroke="#00d9ff" stroke-width="2"/>
+                <circle cx="326" cy="98" r="4" fill="#00d9ff"/><circle cx="260" cy="203" r="4" fill="#092731" stroke="#2b7082"/><circle cx="105" cy="231" r="4" fill="#092731" stroke="#2b7082"/>
+                <rect x="168" y="128" width="24" height="24" fill="#00d9ff" fill-opacity=".12" stroke="#00d9ff"/><path d="M175 140h10M180 135v10" stroke="#00d9ff" stroke-width="2"/>
+                <text x="148" y="111" fill="#8bd7e4" font-size="9" font-family="monospace">TON POSTE</text>
+                <text x="226" y="60" fill="#65a4b1" font-size="9" font-family="monospace">ACADÉMIE</text>
+                <text x="17" y="219" fill="#65a4b1" font-size="9" font-family="monospace">SOURCE ?</text>
+              </svg>
+            </div>
+            <div class="intro-signal-data"><div><span>ORIGINE</span><b>CARTOGRAPHE</b></div><div><span>SESSION</span><b>joueur@10.10.0.5</b></div><div><span>ÉTAT</span><b class="intro-accent">ACCÈS ACCORDÉ</b></div></div>
+            <p class="intro-aside-note">Une carte n’indique pas la réponse.<br>Elle montre où commencer.</p>
+          </aside>
+        </div>
+      </section>
+
+      <section class="intro-page" data-intro-page="1" hidden>
+        <div class="intro-columns">
+          <div class="intro-copy">
+            <div class="intro-kicker"><span>02 / TON POSTE</span><span class="intro-kicker-line"></span><span>PRISE EN MAIN</span></div>
+            <h1 id="introTitle1">Apprends à lire<br><em>ton écran.</em></h1>
+            <p class="intro-lead">Le terminal est ton outil. Le réseau est ton terrain. Voici la disposition initiale de ton poste.</p>
+            <div class="intro-features">
+              <article><span class="intro-feature-number">01</span><div><h2>LE TERMINAL <small>À DROITE</small></h2><p>Écris une commande et appuie sur Entrée. La réponse apparaît juste au-dessus.</p></div></article>
+              <article><span class="intro-feature-number">02</span><div><h2>LA CARTE <small>AU CENTRE</small></h2><p>Découvre les machines du réseau et observe les liens entre les nœuds.</p></div></article>
+              <article><span class="intro-feature-number">03</span><div><h2>LES CONTRATS <small>À DROITE</small></h2><p>Valide les objectifs pour gagner des crédits et de l’XP ; les rangs ouvrent de nouveaux accès. TOUS affiche aussi les contrats facultatifs.</p></div></article>
+            </div>
+          </div>
+          <aside class="intro-console" aria-label="Exemple de commande dans le terminal">
+            <div class="intro-aside-top"><span>APERÇU DU TERMINAL</span><span>● PRÊT</span></div>
+            <div class="intro-console-screen">
+              <div class="intro-console-label">SESSION LOCALE / 10.10.0.5</div>
+              <div><span class="intro-console-prompt">joueur@poste:~$</span> pwd</div>
+              <div class="intro-console-result">/home/joueur</div>
+              <div class="intro-console-cursor"><span class="intro-console-prompt">joueur@poste:~$</span> <b>▌</b></div>
+            </div>
+            <div class="intro-console-note"><span>CONSEIL 01</span><p><code>pwd</code> indique où tu te trouves. Tu n’as rien besoin d’installer : tout se passe dans le jeu.</p></div>
+          </aside>
+        </div>
+      </section>
+
+      <section class="intro-page" data-intro-page="2" hidden>
+        <div class="intro-columns">
+          <div class="intro-copy">
+            <div class="intro-kicker"><span>03 / PREMIER CONTRAT</span><span class="intro-kicker-line"></span><span>MISSION 001</span></div>
+            <h1 id="introTitle2">Ta première<br><em>destination.</em></h1>
+            <p class="intro-lead">Le premier contrat t’emmène sur ACADEMIE : découvre le serveur, ouvre une session et lis la première note.</p>
+            <div class="intro-route">
+              <div><b>01</b><span><strong>DÉCOUVRIR</strong><small>Repère les machines voisines.</small></span><code>nmap -sn 10.10.0.0/24</code></div>
+              <div><b>02</b><span><strong>SE CONNECTER</strong><small>Mot de passe fictif : joueur</small></span><code>ssh joueur@10.10.0.1</code></div>
+              <div><b>03</b><span><strong>EXPLORER</strong><small>Liste puis lis la première note.</small></span><code>ls /home/cours<br>cat /home/cours/01_navigation.txt</code></div>
+              <div><b>04</b><span><strong>VALIDER</strong><small>Une fois les objectifs remplis.</small></span><code>valider</code></div>
+            </div>
+          </div>
+          <aside class="intro-briefing">
+            <div class="intro-aside-top"><span>BRIEFING / 001</span><span>● FORMATION</span></div>
+            <div class="intro-brief-body">
+              <span class="intro-brief-tag">MISSION PRINCIPALE</span>
+              <h2>Premier contact</h2>
+              <p>L’Académie est ton terrain d’entraînement. Prends le temps d’explorer : le guide peut te proposer chaque commande, sans jamais l’exécuter à ta place.</p>
+              <div class="intro-brief-rule"></div>
+              <div class="intro-brief-data"><span>DESTINATION</span><b>10.10.0.1</b></div>
+              <div class="intro-brief-data"><span>ACCÈS</span><b>joueur / joueur</b></div>
+              <div class="intro-brief-data"><span>CADRE</span><b>100 % FICTIF</b></div>
+              <p class="intro-brief-note">Le guide des premiers pas reste accessible à tout moment avec l’icône ◎.</p>
+            </div>
+          </aside>
+        </div>
+      </section>
+    </main>
+
+    <footer class="intro-footer">
+      <div class="intro-progress" aria-label="Progression de l’introduction">
+        <div class="intro-progress-bars" aria-hidden="true"><i data-intro-indicator="0"></i><i data-intro-indicator="1"></i><i data-intro-indicator="2"></i></div>
+        <span id="introProgress" aria-live="polite">01 / 03 · TRANSMISSION</span>
+        <span class="intro-scroll-hint">↓ FAIRE DÉFILER LE TEXTE</span>
+      </div>
+      <div class="intro-controls">
+        <button id="introBack" class="intro-button intro-button-quiet" type="button" hidden>← RETOUR</button>
+        <button id="introSolo" class="intro-button intro-button-quiet" type="button" hidden>EXPLORER SEUL</button>
+        <button id="introNext" class="intro-button intro-button-primary" type="button">CONTINUER <span aria-hidden="true">→</span></button>
+        <button id="introStart" class="intro-button intro-button-primary" type="button" hidden>COMMENCER AVEC LE GUIDE <span aria-hidden="true">→</span></button>
+      </div>
+    </footer>
+  </div>
+</section>
+
 <!-- ======================= TABLEAU DES CONTRATS ======================= -->
 <div class="ov" id="contracts">
   <div class="modal wide">
@@ -129,10 +267,13 @@
   </div>
 </div>
 
+<!-- Sélecteur utilisé par la commande « importer ». -->
+<input id="fileInput" type="file" accept=".json,application/json" hidden>
+
 <!-- ======================= ÉDITEUR ======================= -->
 <div class="ov" id="editor">
   <div class="modal">
-    <div class="mh"><h3>Éditeur Python</h3><button id="editorClose">×</button></div>
+    <div class="mh"><h3>Éditeur de fichiers</h3><button id="editorClose">×</button></div>
     <div class="ed-path" id="editorPath">—</div>
     <textarea id="editorText" spellcheck="false"></textarea>
     <div class="ed-bar">
@@ -149,6 +290,7 @@
 <script src="js/engine.js"></script>
 <script src="js/campaign.js"></script>
 <script src="js/apiserver.js"></script>
+<script src="js/quickjs-runtime.js"></script>
 <script src="js/jsrun.js"></script>
 <script src="js/webdev.js"></script>
 <script src="js/game.js"></script>
@@ -156,6 +298,8 @@
 <script src="js/audio.js"></script>
 <script src="js/realcmd.js"></script>
 <script src="js/ui.js"></script>
+<script src="js/tutorial.js"></script>
+<script src="js/intro.js"></script>
 <script src="js/browser.js"></script>
 <script src="js/clock.js"></script>
 <script src="js/contracts.js"></script>

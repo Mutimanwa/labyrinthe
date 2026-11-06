@@ -1,66 +1,111 @@
 # LABYRINTHE
 
-Simulation de hacking **pédagogique** en français : du premier `ping` au white hat
-certifié, dans un monde fictif entièrement simulé (Game Bible : `GAME_BIBLE.md`).
+Simulation pédagogique de hacking en français, dans un monde fictif : terminal,
+Python, réseau, cybersécurité et développement web. La campagne comprend
+16 missions initiales et 6 missions web ; des contrats indépendants et des sites
+fictifs complètent le jeu. Voir `GAME_BIBLE.md` pour la conception.
 
-> Règle intouchable : le terminal du jeu est **100 % simulé**. Aucune commande
-> n'est jamais exécutée sur la machine réelle du joueur — ni en JS, ni en Rust.
+Le terminal et les machines du jeu sont simulés : les commandes du joueur ne
+sont pas exécutées sur l'ordinateur réel. Le JavaScript des exercices web est
+exécuté dans un moteur QuickJS/WASM isolé, avec accès uniquement à l'API fictive.
+
+## Lancer l'édition web
+
+Depuis la racine du projet, avec Python 3 :
+
+```bash
+python3 serve.py
+# Ouvrir http://localhost:8000
+```
+
+Ou, avec Node.js installé : `npm run dev:web`. Le serveur dessert à la fois
+`src/` et les packs `content/` ; `cd src && python3 -m http.server` ne suffit
+pas pour charger les sites, contrats et forums. Les options `--bind` et
+`--port` permettent de changer l'adresse et le port.
+
+Au début d'une nouvelle partie, une **introduction narrative** transmet un
+message du Cartographe, présente le terminal, la carte et les contrats, puis
+propose les premières étapes sur ACADEMIE. On peut la passer (ou utiliser Échap),
+ou la parcourir puis choisir le guide ou l'exploration libre. L'horloge et les
+événements du jeu restent en pause pendant la lecture. Une première introduction
+interrompue reprend à la dernière page sauvegardée ; les anciennes parties ne
+sont pas interrompues.
+Pour la revoir : icône ⓘ dans la barre haute ou commande `intro`.
+
+Le **guide initial** accompagne ensuite la première mission. Il est facultatif :
+le bouton PASSER le masque et l'icône ◎ dans la barre haute permet de le rouvrir.
+Sa progression est sauvegardée avec la partie.
+
+À partir de 3 000 XP, `relais` permet d'atteindre le Puits en trois sauts
+simulés. `marché` (ou `marche`) présente les articles ; leurs effets, les
+incidents, le GARDIEN et la Tâche-Noire restent entièrement fictifs. Les fins
+`fin`, disponibles après les 22 missions, sont narratives. Détails et économie
+du jeu : sections 6.2 et 6.6–6.8 de `GAME_BIBLE.md`.
+
+## Construire le monofichier hors ligne
+
+```bash
+python3 build-single.py
+# → dist/labyrinthe-single.html
+```
+
+Le fichier généré peut être ouvert directement dans un navigateur. Il embarque
+les scripts, le moteur WASM et les packs de contenu. Pour une utilisation sans
+serveur, ouvrir ce fichier plutôt que `src/index.html`.
+
+## Lancer l'application de bureau (Tauri)
+
+Pré-requis : [Rust à jour](https://rustup.rs) (au moins 1.90 pour le plugin
+de dialogue actuel), Node.js et les [dépendances système de Tauri 2](https://v2.tauri.app/start/prerequisites/)
+(sous Windows : Visual Studio Build Tools et WebView2).
+
+```bash
+npm ci
+npm run dev       # fenêtre de développement
+npm run build     # installateurs adaptés à l'OS courant
+```
+
+L'application stocke sa sauvegarde dans `labyrinthe.db` (SQLite), dans son
+dossier de données. La première ouverture peut migrer l'ancienne sauvegarde
+`localStorage` vers SQLite. Les commandes `exporter` et `importer` ouvrent
+un sélecteur de fichiers natif. Les icônes desktop dans `src-tauri/icons/`
+sont générées depuis `src-tauri/icon.svg`.
+
+## Tests
+
+```bash
+npm ci
+npm test                         # moteur, parcours initial, sauvegarde, API et missions web
+npx playwright install chromium  # une seule fois, pour les tests navigateur
+npm run test:browser             # introduction, interface, reset, rapport, CSP et monofichier
+```
+
+On peut utiliser un Chromium déjà installé en définissant `CHROMIUM_PATH` avant
+`npm run test:browser`. Les tests navigateur reproduisent aussi la CSP et le
+pont Tauri, mais **ne remplacent pas une compilation et un test natifs Tauri**.
 
 ## Structure
 
-```
-GAME_BIBLE.md        document de conception central (v1.0)
-src/                 frontend (édition web, tourne tel quel dans un navigateur)
-  index.html
-  css/theme.css      langage visuel Hacknet (thème injecté par machine)
-  js/bridge.js       pont Tauri / localStorage (chargé en premier)
-  js/py.js           interpréteur Python pédagogique (maison)
-  js/engine.js       système de fichiers + moteur shell (window.GameEngine)
-  js/campaign.js     LE MONDE : réseau, machines, 16 contrats (window.Campaign)
-  js/apiserver.js    serveur/API simulé (window.ApiServerMod)
-  js/jsrun.js        transpileur TS→JS (window.JsRun)
-  js/webdev.js       machine web + missions web (window.WebDev)
-  js/game.js         cœur de jeu (window.GameCore)
-  js/programs.js     thèmes + programmes (window.GamePrograms)
-  js/audio.js        moteur WebAudio (window.GameAudio)
-  js/realcmd.js      commandes réalistes supplémentaires (window.RealCommands)
-  js/ui.js           boot, panneaux, terminal, sauvegarde localStorage
-content/             contenu data-driven (missions, sites, threads, puits) — M1+
-src-tauri/           backend Rust (fenêtre + SQLite + packs de contenu)
-dist/                builds monofichier générés (build-single.py)
+```text
+src/index.html       interface du jeu
+src/css/theme.css    thème multi-panneaux
+src/js/engine.js     système de fichiers, shell et monde simulés
+src/js/campaign.js   monde et 16 missions initiales
+src/js/webdev.js     machine et 6 missions web
+src/js/jsrun.js      adaptation TypeScript et lancement du moteur isolé
+src/js/quickjs-runtime.js  moteur QuickJS/WASM embarqué pour l'utilisation hors ligne
+src/js/intro.js      introduction narrative et pause pendant la lecture
+src/js/tutorial.js   guide facultatif des premiers pas
+src/js/bridge.js     contenu et sauvegarde web/Tauri
+content/             packs de sites, contrats et forum
+src-tauri/           fenêtre Tauri, ressources et persistance SQLite
+serve.py             serveur de développement web
+build-single.py      génération du monofichier dans dist/
+tests/               tests du moteur, de la campagne et du navigateur
+tools/               sources, compilation et licences du moteur isolé
 ```
 
-## Lancer en édition web (zéro installation)
-
-```bash
-cd src && python3 -m http.server 8000
-# → http://localhost:8000
-```
-(Ou ouvrir `src/index.html` directement dans un navigateur.)
-
-## Reconstruire le monofichier (démos/partage)
-
-```bash
-python3 build-single.py   # → dist/labyrinthe-single.html
-```
-
-## Lancer l'app de bureau (Tauri) — M5
-
-Pré-requis : [Rust](https://rustup.rs), Node.js, les outils de build de ton OS
-(sous Windows : Visual Studio Build Tools + WebView2).
-
-```bash
-npm install                 # installe @tauri-apps/cli (voir package.json)
-npx tauri dev               # fenêtre de dev
-npx tauri build             # .msi / NSIS sous Windows, .deb/.AppImage, .dmg
-```
-
-La base `labyrinthe.db` (SQLite, schéma §10.3 de la bible) se crée au premier
-lancement dans le dossier de données de l'app. Migration des anciennes
-sauvegardes `localStorage` (`labyrinthe.save.v2`) prévue au M5 via `bridge.js`.
-
-## Boucle de dev
-
-- `npx tauri dev` recharge le frontend à chaud (fichiers statiques).
-- Toute nouvelle mission se écrit dans `content/` (JSON/Markdown), sans toucher au code.
-- Garder `node --check` vert sur chaque fichier de `src/js/` avant de commit.
+Le bundle QuickJS est versionné pour que l'édition web fonctionne hors ligne.
+Après modification de `tools/sandbox-entry.js`, le reconstruire avec
+`npm ci && npm run build:sandbox`. Les licences correspondantes sont dans
+`tools/QUICKJS-LICENSE.txt`.

@@ -30,8 +30,17 @@
   // localStorage dans SQLite si aucun slot n'existe encore.
   const SaveStore = (function () {
     let migrated = false;
+    // Les écritures et suppressions Tauri doivent rester ordonnées, notamment
+    // lorsqu'une sauvegarde automatique précède une remise à zéro.
+    let pending = Promise.resolve();
+    function enqueue(operation) {
+      const result = pending.then(operation, operation);
+      pending = result.catch(() => {});
+      return result;
+    }
     return {
       async get() {
+        await pending;
         if (window.LabyBridge && window.LabyBridge.tauri) {
           const data = await window.LabyBridge.saveRead(SAVE_SLOT);
           if (data !== null && data !== false) return data;
@@ -48,17 +57,25 @@
         }
         return Store.get(SAVE_KEY);
       },
-      async set(data) {
-        if (window.LabyBridge && window.LabyBridge.tauri) {
-          return await window.LabyBridge.saveWrite(SAVE_SLOT, data);
+      set(data) {
+        if (!(window.LabyBridge && window.LabyBridge.tauri)) {
+          // Écriture synchrone en web, y compris pendant beforeunload.
+          return Promise.resolve(Store.set(SAVE_KEY, data));
         }
-        return Store.set(SAVE_KEY, data);
+        return enqueue(() => window.LabyBridge.saveWrite(SAVE_SLOT, data));
       },
-      async del() {
-        if (window.LabyBridge && window.LabyBridge.tauri) {
-          return await window.LabyBridge.save_delete(SAVE_SLOT);
+      del() {
+        if (!(window.LabyBridge && window.LabyBridge.tauri)) {
+          Store.del(SAVE_KEY);
+          return Promise.resolve(true);
         }
-        Store.del(SAVE_KEY);
+        return enqueue(async () => {
+          const deleted = await window.LabyBridge.saveDelete(SAVE_SLOT);
+          if (!deleted) return false;
+          // Ne pas réimporter une ancienne sauvegarde au redémarrage Tauri.
+          Store.del(SAVE_KEY);
+          return true;
+        });
       },
       async list() {
         if (window.LabyBridge && window.LabyBridge.tauri) {
@@ -70,6 +87,8 @@
   })();
 
   let game = null, cmdHistory = [], histIdx = -1, displayMode = 'connect', editorPath = null;
+  let editorNode = null, editorOwner = null;
+  let resetInProgress = false;
 
   // -------------------------------------------------- THÈME
   function applyTheme() {
@@ -429,12 +448,12 @@
 
   // -------------------------------------------------- NETMAP
   const LAYOUT = {
-    joueur: [45, 88], academie: [140, 88], depot: [140, 148],
-    shellLab: [255, 30], shellCoffre: [370, 30],
-    codeLab: [255, 72], codeBuild: [370, 72],
-    netLab: [255, 114], netFw: [355, 114], netProxy: [445, 114], netInterne: [545, 114],
-    secLab: [255, 152], secCible: [370, 152],
-    apiLab: [255, 190]
+    joueur: [45, 88], academie: [135, 88], depot: [135, 148],
+    shellLab: [240, 22], shellCoffre: [350, 22],
+    codeLab: [240, 56], codeBuild: [350, 56],
+    netLab: [240, 90], netFw: [350, 90], netProxy: [445, 90], netInterne: [535, 90],
+    secLab: [240, 124], secCible: [350, 124], apiLab: [240, 160],
+    relais1: [445, 22], relais2: [535, 22], relais3: [625, 22], puits: [635, 90]
   };
   function renderMap() {
     const svg = $('mapSvg'), w = game.world;
@@ -470,9 +489,12 @@
       lab.textContent = n.name.length > 18 ? n.name.slice(0, 17) + '…' : n.name;
       g.appendChild(lab);
       const title = mk('title', {});
-      title.textContent = `${n.name} — ${n.ip}\n${n.isAdmin ? 'admin' : 'pas d\'accès'}\nCliquer pour se connecter`;
+      const estRelais = /^relais[123]$/.test(n.id);
+      title.textContent = estRelais
+        ? `${n.name} — ${n.ip}\nPoint de passage sans shell. Cliquer pour voir le chenillard.`
+        : `${n.name} — ${n.ip}\n${n.isAdmin ? 'admin' : 'pas d\'accès'}\nCliquer pour se connecter`;
       g.appendChild(title);
-      g.addEventListener('click', () => submit(cur ? 'nmap -sV ' + n.ip : 'ssh joueur@' + n.ip));
+      g.addEventListener('click', () => submit(estRelais ? 'relais' : cur ? 'nmap -sV ' + n.ip : 'ssh joueur@' + n.ip));
       svg.appendChild(g);
     }
     $('mapCount').textContent = known.length + ' / ' + Object.keys(w.nodes).length;
@@ -505,6 +527,10 @@
       items.push(['Audite le web avec', 'nikto -h <ip>']);
       items.push(['Compte tes traces avec', 'grep -c intrusion /var/log/actions.log']);
       items.push(['Dépose une preuve avec', 'scp ./f user@ip:/depot/']);
+    }
+    if ((game.xp || 0) >= 3000) {
+      if (!game.relais.puitsAtteint) items.unshift(['Accède au Puits :', 'relais']);
+      else items.unshift(['Explore le Puits :', 'marché']);
     }
     if (n.firewall && !n.firewallDown) items.unshift(['Filtrage actif. Une fois root :', 'iptables -F']);
     if (game.trace) items.unshift(['Détection en cours ! Ferme la session :', 'exit']);
@@ -621,7 +647,7 @@
     const st = $('missionStatus');
     const m = game.mission;
     if (st) {
-      if (!m) { st.textContent = 'Cursus complet — 16/16.'; st.className = 'mstatus ok'; }
+      if (!m) { st.textContent = `Cursus complet — ${window.Campaign.MISSIONS.length}/${window.Campaign.MISSIONS.length}.`; st.className = 'mstatus ok'; }
       else {
         const r = game.checkMission();
         st.textContent = r.done ? '✓ Objectif atteint — clique VALIDER' : (r.hint || 'En cours…');
@@ -632,9 +658,21 @@
   }
 
   // -------------------------------------------------- EXÉCUTION
-  function submit(raw) {
+  function submit(raw, fromInput) {
     const cmd = raw.trim();
-    if (!cmd) return;
+    if (!cmd || resetInProgress) return;
+    // Le mot de passe SSH est une réponse au prompt, pas une commande :
+    // il ne doit ni être affiché ni ajouté à l'historique du terminal.
+    if (game.pendingSsh) {
+      if (!fromInput) { say('Termine la connexion SSH ou appuie sur Échap pour l’annuler.', 'warn'); return; }
+      const res = game.trySshPassword(cmd);
+      $('cmd').type = 'text';
+      if (res.out && res.out.startsWith('__NARRATE__')) {
+        try { narrate(JSON.parse(res.out.slice('__NARRATE__'.length))); } catch (e) { say(res.out); }
+      } else if (res.out) say(res.out, res.code === 0 ? '' : 'err');
+      updatePrompt();
+      return afterCmd('ssh', res.code);
+    }
     cmdHistory.push(cmd); histIdx = cmdHistory.length;
     echoCmd(cmd);
 
@@ -647,21 +685,11 @@
     if (cmd === 'logs' || cmd === 'logview') { displayMode = 'logs'; renderDisplay(); say('Affichage des journaux dans DISPLAY.'); return; }
     if (cmd === 'forum') { displayMode = 'board'; renderDisplay(); say('Forum affiché dans DISPLAY.'); return; }
     if (cmd === 'contrats' || cmd === 'contracts') { openContracts(); say('Tableau des contrats ouvert.'); return; }
+    if (cmd === 'intro' || cmd === 'introduction') { if (window.LabyIntro) window.LabyIntro.open(); return; }
     if (cmd === 'profil') { if (window.LabyProfile) { window.LabyProfile.open(); } return; }
     if (cmd === 'mail' || cmd === 'poste') { if (window.LabyMail) { window.LabyMail.open(); } return; }
     if (cmd === 'echo' || cmd === 'bruit') { if (window.LabyEcho) say(window.LabyEcho.rapport(game)); return; }
     if (cmd === 'aide' || cmd === '?') { renderGuide(); say(Object.keys(window.GamePrograms.PROGRAMS).join(', ')); return; }
-
-    // Une invite de mot de passe SSH est en attente : la saisie est le mot de passe.
-    if (game.pendingSsh) {
-      const rp = game.shell.commands; // noop pour garder la référence
-      const res = game.trySshPassword(cmd);
-      if (res.out && res.out.startsWith('__NARRATE__')) {
-        try { narrate(JSON.parse(res.out.slice('__NARRATE__'.length))); } catch (e) { say(res.out); }
-      } else if (res.out) say(res.out, res.code === 0 ? '' : 'err');
-      updatePrompt();
-      return afterCmd('ssh');
-    }
 
     const r = game.shell.exec(cmd);
     let out = r.out || '';
@@ -671,6 +699,8 @@
       say(`${d.user}@${d.host}'s password: `, 'dim');
       const loc = $('promptLoc'); if (loc) loc.parentNode.style.display = 'none';
       $('prompt').textContent = 'password:';
+      $('cmd').type = 'password';
+      if (window.LabyTutorial) window.LabyTutorial.refresh();
       return;
     }
 
@@ -695,15 +725,19 @@
     if (out.startsWith('__MISSION_DONE__')) { missionDone(JSON.parse(out.slice('__MISSION_DONE__'.length))); return afterCmd(); }
     if (out.startsWith('__SAVE__')) {
       SaveStore.set(out.slice('__SAVE__'.length)).then(ok => {
-        say(ok ? 'Partie sauvegardée (SQLite).' : 'Partie sauvegardée (localStorage).', 'ok');
+        if (!ok) return say('Sauvegarde impossible sur ce support.', 'err');
+        const support = window.LabyBridge && window.LabyBridge.tauri ? 'SQLite' : 'localStorage';
+        say(`Partie sauvegardée (${support}).`, 'ok');
       });
       return afterCmd();
+    }
     if (out === '__LOAD__') { loadSave(); return afterCmd(); }
     if (out === '__RESET__') { resetGame(); return afterCmd(); }
+    if (out.startsWith('__EDIT_HOME__')) { openEditor(out.slice('__EDIT_HOME__'.length), game.world.home); return afterCmd(); }
     if (out.startsWith('__EDIT__')) { openEditor(out.slice('__EDIT__'.length)); return afterCmd(); }
     if (out) say(out, r.code === 0 ? '' : 'err');
     playFor(cmd.split(/\s+/)[0], r.code);
-    afterCmd(cmd);
+    afterCmd(cmd, r.code);
   }
 
   function playFor(head, code) {
@@ -716,7 +750,8 @@
     if (code !== 0) A.err(); else A.enter();
   }
 
-  function afterCmd(cmd) {
+  function afterCmd(cmd, code) {
+    if (window.LabyTutorial) window.LabyTutorial.check(cmd, code);
     if (cmd) {
       const head = cmd.split(/\s+/)[0];
       if (head === 'nmap' || head === 'iptables' || head === 'ufw') displayMode = 'ports';
@@ -725,20 +760,20 @@
       else if (head === 'sudo' || head === 'hydra' || head === 'msfconsole') displayMode = 'ports';
     }
     applyTheme(); updatePrompt(); renderDisplay(); renderMap();
-    renderProcesses(); renderTrace(); renderGuide(); refreshStatus();
+    renderProcesses(); renderTrace(); renderGuide(); renderMission();
     trimTerm();
   }
 
   function missionDone(d) {
     say('------------------------------------', 'rule');
     say(`MISSION ${d.id} RÉUSSIE — ${d.titre}`, 'ok big');
-    say(`+${d.gained} points${d.speedBonus ? ` (dont ${d.speedBonus} de rapidité)` : ''}   Total : ${d.score}`, 'ok');
+    say(`+${d.gained} points${d.speedBonus ? ` (dont ${d.speedBonus} de rapidité)` : ''}   Total : ${d.score} · +${d.xpGained} xp`, 'ok');
     if (d.reward) say(`Prime versée : ${d.reward} crédits   Solde : ${d.credits} cr`, 'ok');
     if (window.GameAudio) window.GameAudio.contract();
     say('------------------------------------', 'rule');
     say(d.debrief, 'debrief');
     if (d.next) say(`→ Contrat suivant : ${d.next.id}. ${d.next.titre} [${d.next.module}]`, 'sect');
-    else say('CURSUS COMPLET. Rang : ARCHITECTE.', 'ok big');
+    else say('CURSUS COMPLET. Tape fin pour découvrir ton issue.', 'ok big');
     renderMission(); autoSave();
   }
 
@@ -774,14 +809,16 @@
     b.appendChild(list);
     $('reader').classList.add('open');
   }
-  function openEditor(path) {
-    const n = game.world.target;
+  function openEditor(path, target) {
+    const n = target || game.world.target;
     if (!path) {
       const f = Object.keys(n.files).filter(p => n.isFile(p) && /\.(py|tsx?|jsx?)$/.test(p));
       path = f[0] || '/home/joueur/nouveau.py';
     }
     path = game.shell.resolve(path);
     editorPath = path;
+    editorNode = n;
+    editorOwner = n === game.world.home ? 'joueur' : game.world.user;
     const f = n.get(path);
     $('editorPath').textContent = n.name + ' : ' + path;
     $('editorText').value = f ? f.content : '';
@@ -790,8 +827,8 @@
     $('editorText').focus();
   }
   function saveEditor() {
-    game.world.target.addFile(editorPath, $('editorText').value, { owner: game.world.user });
-    game.record('write', { path: editorPath });
+    editorNode.addFile(editorPath, $('editorText').value, { owner: editorOwner });
+    game.record('write', { path: editorPath, target: editorNode.id });
     $('editorResult').textContent = 'Enregistré : ' + editorPath;
     $('editorResult').className = 'ed-result ok';
     refreshStatus();
@@ -827,38 +864,56 @@
   }
 
   // -------------------------------------------------- SAUVEGARDE
-  function autoSave() { SaveStore.set(game.serialize()); }
+  function autoSave() {
+    if (!resetInProgress && game) {
+      if (window.LabyIntro) window.LabyIntro.checkpoint();
+      SaveStore.set(game.serialize());
+    }
+  }
   // Dans la coque native Tauri, on écrit un VRAI fichier sur le disque.
   // Dans un navigateur, on retombe sur le téléchargement classique.
   function native() {
-    return (window.__TAURI__ && window.__TAURI__.core && window.__TAURI__.dialog)
+    return window.LabyBridge && window.LabyBridge.tauri && window.__TAURI__ && window.__TAURI__.core
       ? window.__TAURI__ : null;
   }
   async function exportNative(data) {
     const T = native();
     try {
-      const path = await T.dialog.save({
-        title: 'Exporter la partie',
-        defaultPath: 'labyrinthe-sauvegarde.json',
-        filters: [{ name: 'Sauvegarde LABYRINTHE', extensions: ['json'] }]
-      });
+      // Le dialogue et l'écriture sont réalisés ensemble côté Rust, sans
+      // exposer au jeu une commande d'accès arbitraire au système de fichiers.
+      const path = await T.core.invoke('export_save', { contents: data });
       if (!path) { say('Export annulé.'); return true; }
-      const n = await T.core.invoke('save_game', { path, contents: data });
-      say('Sauvegarde écrite sur le disque : ' + path + ' (' + n + ' octets)', 'ok');
+      say('Sauvegarde écrite sur le disque : ' + path, 'ok');
       return true;
     } catch (e) { say('Export natif impossible : ' + e, 'err'); return false; }
   }
+  // Une sauvegarde peut être syntaxiquement valide mais contenir un état
+  // incohérent. En cas d'échec, rétablir la partie avant l'import.
+  function restoreSafely(data) {
+    if (window.LabyIntro) window.LabyIntro.checkpoint();
+    const previous = game.serialize();
+    try {
+      game.restore(data);
+      $('cmd').type = 'text';
+      fullRender();
+      if (window.LabyIntro) window.LabyIntro.sync();
+    } catch (error) {
+      let changed = true;
+      try { changed = game.serialize() !== previous; } catch (_) { /* état partiellement restauré */ }
+      if (changed) {
+        try { game.restore(previous); fullRender(); if (window.LabyIntro) window.LabyIntro.sync(); }
+        catch (rollbackError) { throw new Error(error.message + ' (retour à la partie précédente impossible : ' + rollbackError.message + ')'); }
+      }
+      throw error;
+    }
+  }
+
   async function importNative() {
     const T = native();
     try {
-      const path = await T.dialog.open({
-        title: 'Importer une partie',
-        multiple: false,
-        filters: [{ name: 'Sauvegarde LABYRINTHE', extensions: ['json'] }]
-      });
-      if (!path) { say('Import annulé.'); return true; }
-      const data = await T.core.invoke('load_game', { path: String(path) });
-      game.restore(data); say('Partie importée depuis ' + path, 'ok'); fullRender();
+      const data = await T.core.invoke('import_save');
+      if (data === null) { say('Import annulé.'); return true; }
+      restoreSafely(data); say('Sauvegarde importée.', 'ok');
       return true;
     } catch (e) { say('Import natif impossible : ' + e, 'err'); return false; }
   }
@@ -878,8 +933,11 @@
   async function loadSave() {
     const d = await SaveStore.get();
     if (!d) { say('Aucune sauvegarde trouvée.', 'err'); return; }
-    try { game.restore(d); say('Partie restaurée (SQLite).', 'ok'); fullRender(); }
-    catch (e) { say('Sauvegarde illisible : ' + e.message, 'err'); }
+    try {
+      restoreSafely(d);
+      const support = window.LabyBridge && window.LabyBridge.tauri ? 'SQLite' : 'localStorage';
+      say(`Partie restaurée (${support}).`, 'ok');
+    } catch (e) { say('Sauvegarde illisible : ' + e.message, 'err'); }
   }
   async function resetGame(force) {
     // En iframe sandboxée sans allow-modals, confirm() est indisponible :
@@ -891,15 +949,24 @@
       if (ok === null) { say('Confirmation indisponible ici. Tape "reset oui" pour confirmer.', 'warn'); return; }
       if (!ok) { say('Annulé.'); return; }
     }
-    await SaveStore.del();
-    newGame();
-    $('termOut').innerHTML = ''; cmdHistory = [];
-    displayMode = 'connect';
-    await boot(true);
+    resetInProgress = true; // beforeunload ne doit pas recréer l'ancienne partie.
+    try {
+      if (!await SaveStore.del()) {
+        resetInProgress = false;
+        say('Impossible de supprimer la sauvegarde. La partie actuelle est conservée.', 'err');
+        return;
+      }
+      // Un nouveau document réinitialise proprement horloge, PNJ et abonnements.
+      window.location.reload();
+    } catch (e) {
+      resetInProgress = false;
+      say('Remise à zéro impossible : ' + e.message, 'err');
+    }
   }
-  async function fullRender() {
+  function fullRender() {
     applyTheme(); updatePrompt(); renderDisplay(); renderMap();
     renderProcesses(); renderTrace(); renderGuide(); renderMission();
+    if (window.LabyTutorial) window.LabyTutorial.refresh();
   }
 
   // -------------------------------------------------- COMPLÉTION
@@ -911,7 +978,7 @@
     'traceroute', 'arp-scan', 'uname', 'history', 'shred', 'clear', 'date', 'env',
     'base64', 'sha256sum', 'xxd', 'strings', 'openssl', 'john', 'exe',
     'objectif', 'indice', 'valider', 'stats', 'cours', 'editeur', 'sauver', 'charger',
-    'exporter', 'importer', 'reset', 'trace', 'logs', 'logview', 'forum', 'sshd', 'honeypot', 'vols', 'rapport', 'soumettre', 'relais', 'marche', 'run', 'gardien', 'tache-noire', 'fin'];
+    'exporter', 'importer', 'reset', 'intro', 'trace', 'logs', 'logview', 'forum', 'sshd', 'honeypot', 'vols', 'rapport', 'soumettre', 'relais', 'marche', 'marché', 'run', 'gardien', 'tache-noire', 'tâche-noire', 'fin'];
 
   function complete(input) {
     const val = input.value, parts = val.split(/\s+/), box = $('suggest');
@@ -943,7 +1010,7 @@
     PROG.install(game, {
       traceEnabled: false,
       onChange: () => { },
-      onProcessDone: () => { renderProcesses(); refreshStatus(); renderDisplay(); },
+      onProcessDone: () => { fullRender(); },
       onTraceEnd: () => { fullRender(); }
     });
     window.RealCommands.install(game);
@@ -965,11 +1032,17 @@
 
   async function boot(fresh) {
     const saved = fresh ? null : await SaveStore.get();
+    let restored = false;
     if (saved) {
-      try { game.restore(saved); say('Partie précédente restaurée. Tape "objectif" pour reprendre.', 'ok'); say(''); }
-      catch (e) { }
+      try {
+        restoreSafely(saved);
+        restored = true;
+        say('Partie précédente restaurée. Tape "objectif" pour reprendre.', 'ok'); say('');
+      } catch (e) {
+        say('Sauvegarde précédente illisible : ' + e.message + '. Une nouvelle partie est ouverte.', 'warn');
+      }
     }
-    if (!saved) {
+    if (!restored) {
       say('====================================', 'rule');
       say('  L A B Y R I N T H E', 'ok big');
       say('  Shell · Python réel · Réseau · Cybersécurité', 'dim');
@@ -993,6 +1066,8 @@
       say('');
     }
     fullRender();
+    if (window.LabyTutorial) window.LabyTutorial.start();
+    if (window.LabyIntro) window.LabyIntro.start({ onChange: autoSave });
   }
 
   async function init() {
@@ -1002,7 +1077,13 @@
       if (window.GameAudio && window.GameAudio.enabled && e.key.length === 1) window.GameAudio.key();
       if (e.key === 'Enter') {
         e.preventDefault(); $('suggest').classList.remove('open');
-        const v = input.value; input.value = ''; submit(v);
+        const v = input.value; input.value = ''; submit(v, true);
+      } else if (game.pendingSsh) {
+        if (e.key === 'Escape') {
+          e.preventDefault(); game.pendingSsh = null; input.value = ''; input.type = 'text';
+          $('suggest').classList.remove('open'); updatePrompt(); say('Connexion SSH annulée.', 'dim');
+          if (window.LabyTutorial) window.LabyTutorial.refresh();
+        }
       } else if (e.key === 'ArrowUp') { e.preventDefault(); if (histIdx > 0) input.value = cmdHistory[--histIdx]; }
       else if (e.key === 'ArrowDown') { e.preventDefault(); if (histIdx < cmdHistory.length - 1) input.value = cmdHistory[++histIdx]; else { histIdx = cmdHistory.length; input.value = ''; } }
       else if (e.key === 'Tab') {
@@ -1012,7 +1093,10 @@
       } else if (e.key === 'Escape') $('suggest').classList.remove('open');
       else if (e.ctrlKey && e.key === 'l') { e.preventDefault(); $('termOut').innerHTML = ''; }
     });
-    input.addEventListener('input', () => complete(input));
+    input.addEventListener('input', () => {
+      if (game.pendingSsh) $('suggest').classList.remove('open');
+      else complete(input);
+    });
     $('termScroll').addEventListener('click', e => {
       if (window.getSelection().toString()) return;
       if (e.target.tagName !== 'BUTTON') input.focus();
@@ -1032,7 +1116,7 @@
     $('fileInput').addEventListener('change', e => {
       const f = e.target.files[0]; if (!f) return;
       const rd = new FileReader();
-      rd.onload = () => { try { game.restore(String(rd.result)); say('Sauvegarde importée.', 'ok'); fullRender(); } catch (err) { say('Fichier invalide : ' + err.message, 'err'); } };
+      rd.onload = () => { try { restoreSafely(String(rd.result)); say('Sauvegarde importée.', 'ok'); } catch (err) { say('Fichier invalide : ' + err.message, 'err'); } };
       rd.readAsText(f); e.target.value = '';
     });
     document.querySelectorAll('[data-cmd]').forEach(b => { b.onclick = () => { submit(b.dataset.cmd); input.focus(); }; });
@@ -1065,17 +1149,21 @@
 
     // boucle d'horloge : 20 images/seconde
     setInterval(() => {
-      game.tick(Date.now());
+      const now = Date.now();
+      if (window.LabyIntro && window.LabyIntro.isOpen()) {
+        if (game._clockLast !== undefined) game._clockLast = now;
+        return;
+      }
+      game.tick(now);
       renderProcesses(); renderTrace();
     }, 50);
     setInterval(autoSave, 30000);
     window.addEventListener('beforeunload', autoSave);
 
     await boot(false);
-    input.focus();
+    if (!window.LabyIntro || !window.LabyIntro.isOpen()) input.focus();
   }
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', () => init().catch(e => console.error(e)));
   else init().catch(e => console.error(e));
-  }
 })();

@@ -21,12 +21,8 @@
   let charge = false;
 
   async function lireContenu(chemin) {
-    if (global.LabyBridge && global.LabyBridge.tauri) {
-      const r = await global.LabyBridge.contentLoad(chemin);
-      return r ? JSON.parse(r) : null;
-    }
-    const r = await fetch('content/' + chemin);
-    return r.ok ? r.json() : null;
+    const r = await global.LabyBridge.contentLoad(chemin);
+    return r ? JSON.parse(r) : null;
   }
 
   async function charger() {
@@ -73,23 +69,26 @@
     return sp.type + (sp.target ? ` ${sp.target}` : '');
   }
 
-  function recompenser(def) {
+  function rapportPret(def) {
     const g = game();
-    // T17 : si le contrat exige un rapport de pentest, la récompense est bloquée
-    // tant que le rapport n’a pas été validé (commande 'rapport soumettre').
-    if (def.report_required) {
-      const rep = (g.reports || {})[def.id];
-      if (!rep || !rep.valide) {
-        // laisse le contrat actif et signale au joueur
-        if (g.say) {
-          g.say('');
-          g.say(`⚠ CONTRAT ${def.id} : faits atteints, mais le rapport de pentest est manquant.`, 'warn');
-          g.say(`  Ouvrez le gabarit : rapport ${def.id}`, 'dim');
-          g.say(`  Remplissez et validez : rapport soumettre ${def.id}`, 'dim');
-        }
-        return; // pas de récompense
+    const rep = (g.reports || {})[def.id];
+    if (!def.report_required || (rep && rep.valide)) return true;
+    // Un seul rappel par contrat et par partie, pas à chaque événement du bus.
+    if (!g.__reportNotices) g.__reportNotices = new Set();
+    if (!g.__reportNotices.has(def.id)) {
+      g.__reportNotices.add(def.id);
+      if (g.say) {
+        g.say('');
+        g.say(`⚠ CONTRAT ${def.id} : faits atteints, mais le rapport de pentest est manquant.`, 'warn');
+        g.say(`  Ouvrez le gabarit : rapport ${def.id}`, 'dim');
+        g.say(`  Remplissez et validez : rapport soumettre ${def.id}`, 'dim');
       }
     }
+    return false;
+  }
+
+  function recompenser(def) {
+    const g = game();
     const r = def.reward || {};
     g.credits = (g.credits || 0) + (r.credits || 0);
     g.sats = (g.sats || 0) + (r.sats || 0);
@@ -110,7 +109,9 @@
     for (const id of s.active.slice()) {
       if (s.done.includes(id)) continue;
       const def = defs.get(id);
-      if (def && complet(def)) {
+      if (def && complet(def) && rapportPret(def)) {
+        // Marquer avant l'événement contract-done pour éviter une récompense
+        // récursive, mais seulement après avoir vérifié le rapport exigé.
         s.active = s.active.filter(x => x !== id);
         s.done.push(id);
         recompenser(def);

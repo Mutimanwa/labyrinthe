@@ -36,13 +36,19 @@
       this.ip = spec.ip;
       this.os = spec.os || 'Linux';
       this.theme = spec.theme || 'cyan';
-      this.ports = spec.ports || {};      // {22:{service,version,state}}
-      this.firewall = spec.firewall || null;  // {solution, level, allow[]}
+      // Chaque partie possède son propre monde mutable ; les spécifications
+      // de campagne ne doivent jamais être modifiées par iptables ou les PNJ.
+      this.ports = JSON.parse(JSON.stringify(spec.ports || {}));
+      this.firewall = spec.firewall ? JSON.parse(JSON.stringify(spec.firewall)) : null;
       if (this.firewall && !this.firewall.allow) this.firewall.allow = [22];
-      this.users = spec.users || { root: 'root' };
+      if (this.firewall && !this.firewall.policy) this.firewall.policy = 'DROP';
+      this._initialFirewall = this.firewall ? JSON.parse(JSON.stringify(this.firewall)) : null;
+      this.users = Object.assign({}, spec.users || { root: 'root' });
+      this.sudoNoPasswd = !!spec.sudoNoPasswd;
       this.adminPass = spec.adminPass || 'admin';
       this.files = {};                   // chemin absolu -> {type,content,perms,owner}
-      this.links = spec.links || [];
+      this.links = (spec.links || []).slice();
+      this._initialLinks = this.links.slice();
       this.desc = spec.desc || '';
       this.crackedPorts = new Set();
       this.firewallDown = !spec.firewall;
@@ -282,7 +288,7 @@
       // Sans cette copie, les extensions (programmes, jeu) muteraient le
       // prototype partagé : une seconde partie capturerait comme « commande
       // d'origine » une commande déjà redéfinie, et se rappellerait elle-même.
-      this.commands = Object.assign({}, Shell.prototype.commands);
+      this.commands = Object.assign(Object.create(null), Shell.prototype.commands);
     }
 
     // Résout un chemin sur la machine courante
@@ -411,7 +417,8 @@
   Shell.prototype.commands = {
     help(a) {
       if (a[0]) {
-        const h = HELP_DETAIL[a[0]];
+        const nom = a[0].normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+        const h = Object.prototype.hasOwnProperty.call(HELP_DETAIL, nom) ? HELP_DETAIL[nom] : null;
         return { out: h || `Pas d'aide détaillée pour '${a[0]}'.`, code: h ? 0 : 1 };
       }
       return {
@@ -439,7 +446,8 @@
 
   COMMANDES DU JEU (interface, pas du Linux) :
     objectif  indice  valider  stats  cours  editeur  sauver  exporter  profil  mail  echo
-    trace on/off   logs   forum   reset   vraies
+    intro  contrats  rapport  trace on/off  logs  forum  reset  vraies
+    relais  marché  run  gardien  tache-noire  fin  (monde du Puits, entièrement fictif)
 
   'vraies'  → correspondance avec les anciennes commandes fictives
   'help <commande>' → détail.   Ex : help nmap`, code: 0
@@ -929,6 +937,13 @@ lo: flags=73<UP,LOOPBACK,RUNNING>  mtu 65536
     grep: "grep [-i] [-n] [-v] [-c] [-r] MOTIF <fichier>\n  Filtre les lignes. -i casse, -n numéros, -v inverse,\n  -c compte, -r récursif.",
     find: "find [dossier] -name <motif>\n  Cherche des fichiers. Ex : find / -name *.log",
     chmod: "chmod <mode> <fichier>\n  Change les permissions. Ex : chmod 755 script.py",
+    intro: "intro\n  Revoir l'introduction et choisir si le guide des premiers pas est affiché.",
+    relais: "relais\n  Statut du chenillard vers le Puits (à partir de 3000 xp).\nrelais sauter\n  Lance le prochain saut ; 50 crédits à l'arrivée.\nrelais arreter / relais recommencer\n  Annule un saut / repart du début.",
+    marche: "marché ou marche\n  Liste les achats fictifs après l'arrivée au Puits.\n  marché changer <crédits>  |  marché acheter <id>  |  marché inventaire",
+    run: "run <fichier>\n  Simule l'exécution d'un fichier du jeu ; les articles piégés ont des conséquences fictives.",
+    gardien: "gardien\n  Statut d'une enquête. Choix possibles : gardien cooperer ou gardien resister.",
+    'tache-noire': "tache-noire\n  Statut et options de récupération de la note fictive. Rien ne modifie le disque réel.",
+    fin: "fin\n  Découvre la fin narrative après les 22 missions.",
   };
 
   // Décode un paquet narratif en texte simple (tests, export, repli).

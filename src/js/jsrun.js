@@ -4,11 +4,10 @@
    - stripTypes : retire les annotations TypeScript (le navigateur ne
      comprend pas les types ; c'est exactement ce que fait `tsc`, en
      version pédagogique).
-   - Le code tourne dans un Worker isolé quand c'est possible : on peut
-     alors TUER une boucle infinie. Sinon repli sur vm (Node) puis sur
-     new Function avec un garde-fou injecté dans les boucles.
-   - fetch() est un vrai pont asynchrone vers ApiServer : l'apprenti
-     écrit du fetch réel, avec await, headers, codes de statut.
+   - Le code tourne dans QuickJS/WASM, avec limites de temps et de mémoire.
+     Aucun objet du navigateur, shell ni réseau réel n'est exposé.
+   - fetch() est un pont asynchrone vers l'ApiServer fictif : l'apprenti
+     utilise await, headers et codes de statut dans le monde simulé.
    ===================================================================== */
 (function (global) {
   'use strict';
@@ -131,133 +130,6 @@
     }
   `;
 
-  const WORKER_SRC = `
-    self.onmessage = async (ev) => {
-      const { code, apiBase, SHIMS } = ev.data;
-      const out = [];
-      const calls = [];
-      let pending = new Map();
-      let seq = 0;
-      const console2 = {
-        log: (...a) => out.push(a.map(fmt).join(' ')),
-        info: (...a) => out.push(a.map(fmt).join(' ')),
-        warn: (...a) => out.push('[warn] ' + a.map(fmt).join(' ')),
-        error: (...a) => out.push('[error] ' + a.map(fmt).join(' ')),
-        table: (a) => out.push(fmt(a))
-      };
-      function fmt(v) {
-        if (typeof v === 'string') return v;
-        try { return JSON.stringify(v); } catch (e) { return String(v); }
-      }
-      function fetch2(url, opts) {
-        const id = ++seq;
-        const u = String(url).startsWith('http') ? String(url) : apiBase + String(url);
-        calls.push({ url: u, method: (opts && opts.method) || 'GET' });
-        self.postMessage({ type: 'fetch', id, url: u, opts: opts || null });
-        return new Promise((res, rej) => pending.set(id, { res, rej }));
-      }
-      self.onmessage = (e) => {
-        const d = e.data;
-        if (d.type === 'fetchResult') {
-          const p = pending.get(d.id);
-          if (!p) return;
-          pending.delete(d.id);
-          const r = d.result;
-          p.res({
-            ok: r.status >= 200 && r.status < 300,
-            status: r.status,
-            statusText: r.statusText || '',
-            headers: { get: (k) => r.headers[String(k).toLowerCase()] ?? null },
-            json: async () => r.body,
-            text: async () => JSON.stringify(r.body)
-          });
-        }
-      };
-      try {
-        const fn = new Function('fetch', 'console', 'apiBase', SHIMS + '\\nreturn (async () => {' + code + '\\n})()');
-        const result = await fn(fetch2, console2, apiBase);
-        if (result !== undefined) out.push('→ ' + fmt(result));
-        self.postMessage({ type: 'done', ok: true, output: out.join('\\n'), calls });
-      } catch (e) {
-        self.postMessage({ type: 'done', ok: false, output: out.join('\\n'), calls,
-          error: (e && e.name ? e.name + ': ' : '') + (e && e.message ? e.message : String(e)) });
-      }
-    };
-  `;
-
-  function runInWorker(code, api, apiBase, timeout) {
-    return new Promise((resolve) => {
-      let worker, url;
-      try {
-        url = URL.createObjectURL(new Blob([WORKER_SRC], { type: 'text/javascript' }));
-        worker = new Worker(url);
-      } catch (e) { resolve(null); return; }   // pas de Worker → repli
-      let settled = false;
-      const finish = (r) => {
-        if (settled) return; settled = true;
-        clearTimeout(timer);
-        try { worker.terminate(); } catch (e) { }
-        try { URL.revokeObjectURL(url); } catch (e) { }
-        resolve(r);
-      };
-      const timer = setTimeout(() => finish({
-        ok: false, output: '', calls: [],
-        error: `TimeoutError: exécution interrompue après ${timeout} ms (boucle infinie ?)`
-      }), timeout);
-      worker.onmessage = (e) => {
-        const d = e.data;
-        if (d.type === 'fetch') {
-          let result;
-          try { result = api.handle((d.opts && d.opts.method) || 'GET', d.url, d.opts || {}); }
-          catch (err) { result = { status: 500, headers: {}, body: { error: String(err) } }; }
-          worker.postMessage({ type: 'fetchResult', id: d.id, result });
-        } else if (d.type === 'done') {
-          finish({ ok: d.ok, output: d.output, calls: d.calls, error: d.error });
-        }
-      };
-      worker.onerror = (e) => finish({ ok: false, output: '', calls: [], error: String(e.message || e) });
-      worker.postMessage({ code, apiBase, SHIMS });
-    });
-  }
-
-  // Chemin de repli : new Function + garde-fou. Pas d'interruption possible,
-  // donc on borne les itérations, les appels fetch et la sortie.
-  async function runInline(code, api, apiBase, limits) {
-    const out = [], calls = [];
-    let steps = 0, fetches = 0;
-    const fmt = (v) => typeof v === 'string' ? v : (() => { try { return JSON.stringify(v); } catch (e) { return String(v); } })();
-    const push = (...a) => { if (out.length < limits.maxLines) out.push(a.map(fmt).join(' ')); };
-    const console2 = { log: push, info: push, warn: (...a) => push('[warn]', ...a), error: (...a) => push('[error]', ...a), table: push };
-    const guard = () => { if (++steps > limits.maxSteps) throw new Error("RangeError: trop d'itérations (boucle infinie ?)"); };
-    const fetch2 = async (url, opts) => {
-      if (++fetches > limits.maxFetch) throw new Error("trop d'appels fetch (" + limits.maxFetch + " max)");
-      const u = String(url).startsWith('http') ? String(url) : apiBase + String(url);
-      calls.push({ url: u, method: (opts && opts.method) || 'GET' });
-      const r = api.handle((opts && opts.method) || 'GET', u, opts || {});
-      return {
-        ok: r.status >= 200 && r.status < 300,
-        status: r.status,
-        statusText: '',
-        headers: { get: (k) => r.headers[String(k).toLowerCase()] ?? null },
-        json: async () => r.body,
-        text: async () => JSON.stringify(r.body)
-      };
-    };
-    try {
-      const guarded = guardLoops(code);
-      const fn = new Function('fetch', 'console', 'apiBase', '__guard',
-        SHIMS + '\nreturn (async () => {' + guarded + '\n})()');
-      const result = await fn(fetch2, console2, apiBase, guard);
-      if (result !== undefined) push('→ ' + fmt(result));
-      return { ok: true, output: out.join('\n'), calls };
-    } catch (e) {
-      return {
-        ok: false, output: out.join('\n'), calls,
-        error: (e && e.name ? e.name + ': ' : '') + (e && e.message ? e.message : String(e))
-      };
-    }
-  }
-
   const DEFAULTS = { timeout: 4000, maxSteps: 2000000, maxFetch: 40, maxLines: 400 };
 
   async function run(source, api, opts) {
@@ -269,11 +141,18 @@
     catch (e) { return { ok: false, output: '', calls: [], error: 'SyntaxError: types non reconnus — ' + e.message }; }
     if (!code.trim()) return { ok: false, output: '', calls: [], error: 'fichier vide' };
 
-    if (typeof Worker !== 'undefined' && typeof Blob !== 'undefined' && typeof URL.createObjectURL === 'function') {
-      const r = await runInWorker(code, api, apiBase, limits.timeout);
-      if (r) return r;
+    // Pas de repli sur new Function : il exposerait le navigateur et le réseau.
+    let sandbox = global.LabySandbox;
+    if (!sandbox && typeof require === 'function') {
+      require('./quickjs-runtime.js');
+      sandbox = global.LabySandbox;
     }
-    return runInline(code, api, apiBase, limits);
+    if (!sandbox) return { ok: false, output: '', calls: [], error: 'Moteur JavaScript isolé indisponible.' };
+    try {
+      return await sandbox.run(code, api, Object.assign({}, limits, { apiBase }), SHIMS);
+    } catch (e) {
+      return { ok: false, output: '', calls: [], error: 'Erreur du moteur isolé : ' + (e && e.message || e) };
+    }
   }
 
   const mod = { run, stripTypes, guardLoops, DEFAULTS };

@@ -246,6 +246,7 @@
 
     // battements du monde
     setInterval(() => {
+      if (global.LabyIntro && global.LabyIntro.isOpen()) return;
       if (g.traceEnabled === false) return;       // mode serein : les chasseurs dorment aussi
       const monde = g.worldMin || 0;
       const n = etat(g);

@@ -85,14 +85,8 @@
 
   async function charger() {
     try {
-      let d = null;
-      if (global.LabyBridge && global.LabyBridge.tauri) {
-        const r = await global.LabyBridge.contentLoad('forum/threads.json');
-        d = r ? JSON.parse(r) : null;
-      } else {
-        const r = await fetch('content/forum/threads.json');
-        d = r.ok ? await r.json() : null;
-      }
+      const r = await global.LabyBridge.contentLoad('forum/threads.json');
+      const d = r ? JSON.parse(r) : null;
       if (d && d.threads) { PERMANENTS.push(...d.threads); charges = true; }
     } catch (e) { console.warn('[forum]', e); }
   }
@@ -129,6 +123,7 @@
     const g = game();
     if (!g) return void setTimeout(ordonnanceur, 2000);
     setInterval(() => {
+      if (global.LabyIntro && global.LabyIntro.isOpen()) return;
       const monde = g.worldMin || 0;
       let change = false;
       for (const fil of etat().threads) {
