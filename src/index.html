@@ -140,17 +140,17 @@
 <section id="setup" class="setup-overlay" role="dialog" aria-modal="true" aria-labelledby="setupHeading" data-stage="form" hidden>
   <div class="setup-shell">
     <header class="setup-titlebar">
-      <div class="setup-brand"><span class="setup-brand-mark" aria-hidden="true">L<span>_</span></span>
+      <div class="setup-brand"><span class="setup-brand-mark" aria-hidden="true">LYB</span>
         <div><b>LABYRINTHE</b><small id="setupSub">ENREGISTREMENT DE LA STATION</small></div>
       </div>
-      <div class="setup-net"><i></i> RÉSEAU SIMULÉ</div>
+      <div class="setup-net"><i></i> LIEN LOCAL</div>
     </header>
 
     <!-- ======= ÉTAPE 1 · FORMULAIRE ======= -->
     <div class="setup-stage" data-setup-stage="form">
-      <p class="setup-kicker"><span>STATION / 10.10.0.5</span><span class="setup-kicker-line"></span><span>AVANT LA PREMIÈRE MISSION</span></p>
-      <h1 id="setupHeading" class="setup-title">Configure ta <em>station.</em></h1>
-      <p class="setup-lead">Avant d’entrer dans le Labyrinthe, crée le profil de ta session. Ton poste garde ce nom à chaque lancement.</p>
+      <p class="setup-kicker"><span>[ STATION / 10.10.0.5 ]</span><span class="setup-kicker-line"></span><span>[ AVANT LA PREMIÈRE MISSION ]</span></p>
+      <h1 id="setupHeading" class="setup-title">Enregistre ta<br><em>station.</em></h1>
+      <p class="setup-lead">Le Labyrinthe ne s’ouvre pas à n’importe qui. Crée le profil de cette session : le poste s’en souviendra à chaque lancement — et aucun autre ordinateur de ce réseau ne doit te connaître.</p>
       <form id="setupForm" autocomplete="off" novalidate>
         <label class="setup-field" for="setupName"><span>NOM D’UTILISATEUR</span>
           <input id="setupName" name="username" type="text" maxlength="24" minlength="2" required
@@ -168,7 +168,7 @@
         </label>
         <p id="setupError" class="setup-error" role="alert" hidden></p>
         <div class="setup-actions">
-          <button type="submit" id="setupCreate" class="setup-btn setup-btn-primary">CRÉER LE PROFIL <span aria-hidden="true">→</span></button>
+          <button type="submit" id="setupCreate" class="setup-btn setup-btn-primary">CRÉER LA STATION <span aria-hidden="true">→</span></button>
         </div>
       </form>
       <p class="setup-foot"><span aria-hidden="true">◇</span> Le profil reste sur <b>cette machine</b>. Le mot de passe n’est jamais écrit en clair — seule une empreinte salée est conservée.</p>
@@ -176,7 +176,7 @@
 
     <!-- ======= ÉTAPE 2 · CONFIRMATION ======= -->
     <div class="setup-stage" data-setup-stage="confirm" hidden>
-      <p class="setup-kicker"><span>DERNIER CONTRÔLE</span><span class="setup-kicker-line"></span><span>PRÊT À ENREGISTRER</span></p>
+      <p class="setup-kicker"><span>[ DERNIER CONTRÔLE ]</span><span class="setup-kicker-line"></span><span>[ PRÊT À ENREGISTRER ]</span></p>
       <h1 class="setup-title">Tout est <em>réuni ?</em></h1>
       <p class="setup-lead">Vérifie une dernière fois avant que la station ne démarre.</p>
       <dl class="setup-recap">
@@ -194,14 +194,15 @@
 
     <!-- ======= ÉTAPE 3 · JOURNAL DE DÉMARRAGE ======= -->
     <div class="setup-stage" data-setup-stage="boot" hidden>
-      <p class="setup-kicker"><span>SÉQUENCE DE DÉMARRAGE</span><span class="setup-kicker-line"></span><span>LABYRINTHE OS 1.0</span></p>
+      <p class="setup-kicker"><span>[ SÉQUENCE DE DÉMARRAGE ]</span><span class="setup-kicker-line"></span><span>[ LYB-OS 1.0 « FIL D’ARIANE » ]</span></p>
       <pre id="setupBootLog" class="setup-bootlog" aria-live="polite"></pre>
+      <div class="setup-bootmeter" aria-hidden="true"><div class="setup-bootmeter-fill" id="setupBootMeterFill"></div></div>
       <p class="setup-foot" id="setupBootHint"><span class="setup-caret" aria-hidden="true">▌</span> appuie sur une touche pour passer</p>
     </div>
 
     <!-- ======= RETOUR · SESSION VERROUILLÉE ======= -->
     <div class="setup-stage" data-setup-stage="unlock" hidden>
-      <p class="setup-kicker"><span>SESSION VERROUILLÉE</span><span class="setup-kicker-line"></span><span>RETOUR SUR TA STATION</span></p>
+      <p class="setup-kicker"><span>[ SESSION VERROUILLÉE ]</span><span class="setup-kicker-line"></span><span>[ RETOUR SUR TA STATION ]</span></p>
       <h1 class="setup-title">Bon retour,<br><em><span id="setupUnlockName">joueur</span>.</em></h1>
       <p class="setup-lead">La station attend ton mot de passe pour rouvrir la session.</p>
       <form id="setupUnlockForm" autocomplete="off" novalidate>
@@ -226,6 +227,10 @@
         </div>
       </div>
     </div>
+    <footer class="setup-status" aria-hidden="true">
+      <span><b>LYB-OS 1.0</b> · FIL D’ARIANE</span>
+      <span class="setup-status-right"><span>POSTE <b>10.10.0.5</b></span><span>MEM <b>761 Mo</b></span><span><span class="ok">●</span> LIEN LOCAL</span></span>
+    </footer>
   </div>
 </section>
 

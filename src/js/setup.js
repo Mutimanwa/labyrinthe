@@ -75,34 +75,47 @@
   }
 
   // -------------------------------------------------- JOURNAL DE BOOT
+  // Séquence entièrement originale à LABYRINTHE : rien n’est repris du
+  // texte de démarrage d’un jeu existant. « <name> » = utilisateur courant.
   const BOOT_LINES = [
-    { t: '[   0.000000] LABYRINTHE kernel 1.0.0-formation #1 SMP x86_64', d: 0 },
-    { t: '[   0.041208] cpu : processeur virtuel pédagogique (2 cœurs)', d: 120 },
-    { t: '[   0.118943] mémoire : 761 Mo simulés', d: 120 },
-    { t: '[   0.204511] télémétrie : désactivée — ce noyau ne rend compte à personne', d: 150 },
-    { t: '[   0.301122] montage / : poste.local → ext4 (lecture-écriture)', d: 130 },
-    { t: '[   0.377700] montage /home/joueur : image héritée de la formation', d: 130 },
-    { t: '[   0.450019] réseau : 10.10.0.0/24 — lien monté (simulé)', d: 150 },
-    { t: '[   0.512340] ssh : démon simulé à l’écoute (0.0.0.0:22)', d: 170 },
-    { t: '[   0.588190] profil : <name> (uid=1000) — empreinte PBKDF2-SHA-256 chargée', d: 190 },
-    { t: '[   0.640004] contrat #1 : découverte du terrain — en attente', d: 170 },
-    { t: '[   0.701733] démarrage du poste…', d: 220 }
+    { t: 'LYB-OS 1.0.0 « Fil d’Ariane » — noyau pédagogique #1 SMP x86_64', d: 0 },
+    { t: 'lby-cpu    : 6 × LABY-ZEN 3.60 GHz · virt 16 Go · horloge stable', d: 130 },
+    { t: 'lby-mem    : 761 Mo — test mémoire … 761 Mo sans erreur     [ OK ]', d: 190 },
+    { t: 'lby-acpi   : table d’événements reconstruite · 0 défaut signé [ OK ]', d: 150 },
+    { t: 'lby-iommu  : canaux DMA isolés — sortie réseau verrouillée   [ OK ]', d: 160 },
+    { t: 'lby-net    : 10.10.0.0/24 — lien eth0 monté (simulé)         [ OK ]', d: 170 },
+    { t: 'lby-ssh    : démon pédagogique à l’écoute sur 0.0.0.0:22     [ OK ]', d: 180 },
+    { t: 'lby-storage: /dev/laby0 → / (lecture-écriture) · journal rejoué 14 blocs', d: 150 },
+    { t: 'lby-mount  : /home/joueur … image héritée de la formation    [ OK ]', d: 150 },
+    { t: 'lby-crypto : mémoire de session effacée · aucun secret consigné', d: 160 },
+    { t: 'lby-profile: <name> (uid=1000) — vérificateur PBKDF2-SHA-256 chargé', d: 210 },
+    { t: 'lby-contracts: tableau LOCAL synchronisé · 1er dossier « terrain » en attente', d: 170 },
+    { t: 'lby-echo   : sentinelle en veille — ici, la mémoire est longue', d: 170 },
+    { t: 'lby-telemetry: désactivée — ce noyau ne rend compte à personne', d: 160 },
+    { t: 'lby-netns  : 0 paquet émis vers l’extérieur · sandbox étanche', d: 150 },
+    { t: 'lby-check  : intégrité du poste … RAS', d: 140 },
+    { t: '', d: 90 },
+    { t: 'Démarrage terminé en 1.84 s — bienvenue, <name>.', d: 210 },
+    { t: 'Le terrain t’attend. Tape « objectif » une fois sur le poste.', d: 180 }
   ];
 
   function printBoot(name) {
     const log = $('setupBootLog');
+    const fill = $('setupBootMeterFill');
     log.textContent = '';
+    if (fill) fill.style.width = '0%';
     let elapsed = 0;
     state.bootDone = null;
     return new Promise(resolve => {
       state.bootDone = resolve;
-      BOOT_LINES.forEach(line => {
+      BOOT_LINES.forEach((line, index) => {
         elapsed += line.d;
         state.bootTimer = setTimeout(() => {
           log.textContent += line.t.replace('<name>', name) + '\n';
           log.scrollTop = log.scrollHeight;
+          if (fill) fill.style.width = Math.round(((index + 1) / BOOT_LINES.length) * 100) + '%';
           if (line === BOOT_LINES[BOOT_LINES.length - 1]) {
-            state.bootTimer = setTimeout(finishBoot, 650);
+            state.bootTimer = setTimeout(finishBoot, 700);
           }
         }, elapsed);
       });
