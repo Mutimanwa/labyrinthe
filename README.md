@@ -23,6 +23,24 @@ Ou, avec Node.js installé : `npm run dev:web`. Le serveur dessert à la fois
 pas pour charger les sites, contrats et forums. Les options `--bind` et
 `--port` permettent de changer l'adresse et le port.
 
+Avant toute chose, **la station exige une configuration** : au premier
+lancement, un écran d'enregistrement (inspiré des écrans de session
+rétro, adapté au jeu) demande un nom d'utilisateur et un mot de passe
+fictifs, puis affiche un bref journal de démarrage. Les lancements
+suivants demandent le mot de passe pour rouvrir la session. Le mot de
+passe n'est jamais enregistré en clair : seule une empreinte salée
+PBKDF2-SHA-256 est conservée dans la sauvegarde, qui **n'est pas
+chiffrée** — ce verrou est un décor local, pas une protection réelle.
+Un mot de passe oublié ne peut pas être récupéré : l'écran de
+verrouillage propose uniquement d'effacer la sauvegarde et de repartir
+de zéro. Les anciennes parties sans profil passent une seule fois par
+cette création, puis gardent leur progression intacte. Pour la revoir :
+remise à zéro via `reset oui`.
+
+La première mission (« Premier contact », avec le guide initial) fait
+poursuivre cette mise en route : découvrir le réseau, se connecter à
+ACADEMIE et lire la note de cours.
+
 Au début d'une nouvelle partie, une **introduction narrative** transmet un
 message du Cartographe, présente le terminal, la carte et les contrats, puis
 propose les premières étapes sur ACADEMIE. On peut la passer (ou utiliser Échap),
@@ -77,7 +95,7 @@ sont générées depuis `src-tauri/icon.svg`.
 npm ci
 npm test                         # moteur, parcours initial, sauvegarde, API et missions web
 npx playwright install chromium  # une seule fois, pour les tests navigateur
-npm run test:browser             # introduction, interface, reset, rapport, CSP et monofichier
+npm run test:browser             # station, introduction, interface, reset, rapport, CSP et monofichier
 ```
 
 On peut utiliser un Chromium déjà installé en définissant `CHROMIUM_PATH` avant
@@ -95,6 +113,8 @@ src/js/webdev.js     machine et 6 missions web
 src/js/jsrun.js      adaptation TypeScript et lancement du moteur isolé
 src/js/quickjs-runtime.js  moteur QuickJS/WASM embarqué pour l'utilisation hors ligne
 src/js/intro.js      introduction narrative et pause pendant la lecture
+src/js/setup.js      écran de configuration / verrouillage de la station
+src/js/credentials.js  empreinte PBKDF2 du profil (reconstruit depuis tools/)
 src/js/tutorial.js   guide facultatif des premiers pas
 src/js/bridge.js     contenu et sauvegarde web/Tauri
 content/             packs de sites, contrats et forum
@@ -109,3 +129,8 @@ Le bundle QuickJS est versionné pour que l'édition web fonctionne hors ligne.
 Après modification de `tools/sandbox-entry.js`, le reconstruire avec
 `npm ci && npm run build:sandbox`. Les licences correspondantes sont dans
 `tools/QUICKJS-LICENSE.txt`.
+
+Le bundle d'empreintes du profil suit le même principe : après modification
+de `tools/credentials-entry.js`, le reconstruire avec `node tools/build-credentials.cjs`
+(le paquet `@noble/hashes`, MIT, est une dépendance de développement uniquement —
+le bundle livré est autonome).

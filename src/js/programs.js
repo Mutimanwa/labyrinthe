@@ -197,7 +197,7 @@
       this.score = Math.max(0, this.score - 25);
       this.world.current = this.world.playerId;
       this.world.cwd = '/home/joueur';
-      this.world.user = 'joueur';
+      this.world.user = (this.homeUser && this.homeUser()) || 'joueur';
       for (const p of this.processes) { p.cancelled = true; p.done = true; }
       this.say('', '');
       this.say('╔════════════════════════════════════════════════╗', 'trace');

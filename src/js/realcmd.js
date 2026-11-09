@@ -318,7 +318,7 @@
     cmds.__logout = function () {
       if (w().current === w().playerId) return { out: 'Déjà sur ton poste.', code: 0 };
       const from = w().target;
-      w().current = w().playerId; w().cwd = '/home/joueur'; w().user = 'joueur';
+      w().current = w().playerId; w().cwd = '/home/joueur'; w().user = (game.homeUser && game.homeUser()) || 'joueur';
       game.record('disconnect', { from: from.id });
       if (game.stopTrace) game.stopTrace('Traçage interrompu : session fermée.');
       return narr(['logout', `Connection to ${from.ip} closed.`, `Retour sur ${w().home.name}@${w().home.ip}`]);

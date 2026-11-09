@@ -89,6 +89,25 @@
     return out;
   }
 
+  // Profil local : jamais de mot de passe en clair — seulement un
+  // vérificateur PBKDF2-SHA-256 (sel + haché) ou le marqueur legacy.
+  const PROFILE_NAME = /^[a-z][a-z0-9_-]{1,23}$/;
+  function isObjectValue(value) {
+    return !!value && typeof value === 'object' && !Array.isArray(value);
+  }
+  function validProfile(p) {
+    if (!isObjectValue(p)) return false;
+    if (p.legacy === true) {
+      return p.nom === 'joueur' && Object.keys(p).every(k => k === 'nom' || k === 'legacy');
+    }
+    return typeof p.nom === 'string' && PROFILE_NAME.test(p.nom) && p.nom !== 'root' &&
+      p.algo === 'pbkdf2-sha256-v1' &&
+      Number.isSafeInteger(p.iterations) && p.iterations >= 10000 && p.iterations <= 2000000 &&
+      typeof p.salt === 'string' && /^[0-9a-f]{32}$/.test(p.salt) &&
+      typeof p.hash === 'string' && /^[0-9a-f]{64}$/.test(p.hash) &&
+      Object.keys(p).every(k => ['nom', 'algo', 'iterations', 'salt', 'hash'].includes(k));
+  }
+
   // ------------------------------------------------------------ PARTIE
   class Game {
     constructor(opts) {
@@ -105,6 +124,10 @@
       this.answer = null;
       // M2 — profil joueur, horloge du monde (T6), contrats data (T7)
       this.xp = 0; this.xpVersion = 1; this.respect = 0; this.cred = 0; this.sats = 0;
+      // Profil LOCAL facultatif : nom d'utilisateur choisi + vérificateur du
+      // mot de passe fictif (jamais le mot de passe en clair). Absent sur les
+      // anciennes sauvegardes → identité héritée « joueur ».
+      this.profile = null;
       this.worldMin = 0;                                   // minutes monde écoulées (1 s réelle = 1 min)
       this.intro = { terminee: false, etape: 0 };         // introduction narrative facultative
       this.tutorial = { step: 0, hidden: false };         // guide facultatif des premiers pas
@@ -155,6 +178,24 @@
 
     get mission() { return C.MISSIONS[this.missionIndex]; }
     get finished() { return this.completed.size >= C.MISSIONS.length; }
+
+    // Nom de session sur la machine du joueur (le monde reste /home/joueur
+    // pour rester compatible avec les anciennes sauvegardes et les cours).
+    homeUser() { return (this.profile && this.profile.nom) || 'joueur'; }
+    hasLocalProfile() { return !!(this.profile && !this.profile.legacy); }
+    applyProfileIdentity() {
+      if (this.profile && this.world.current === this.world.playerId) {
+        this.world.user = this.profile.nom;
+      } else if (!this.profile && this.world.current === this.world.playerId) {
+        this.world.user = 'joueur';
+      }
+    }
+    setProfile(profile) {
+      if (!validProfile(profile)) throw new Error('profil invalide');
+      this.profile = Object.assign({}, profile);
+      this.applyProfileIdentity();
+      return this.profile;
+    }
 
     moduleRank(mod) {
       const ids = C.MISSIONS.filter(m => m.module === mod).map(m => m.id);
@@ -252,7 +293,8 @@
         soundVolume: typeof this.soundVolume === 'number' ? this.soundVolume : 0.35,
         promptStyle: this.promptStyle || 'demande',
         startedAt: this.startedAt,
-        events: this.events.slice(-800)
+        events: this.events.slice(-800),
+        profile: this.profile ? Object.assign({}, this.profile) : null
       });
     }
 
@@ -302,6 +344,7 @@
         throw new Error('introduction de sauvegarde invalide');
       }
       if ((d.worldMin != null && (!Number.isFinite(d.worldMin) || d.worldMin < 0)) ||
+          (d.profile != null && !validProfile(d.profile)) ||
           (d.relais != null && (!isObject(d.relais) ||
             (d.relais.position != null && (!Number.isInteger(d.relais.position) || d.relais.position < 0 || d.relais.position > 3)) ||
             (d.relais.creditsDepenses != null && (!Number.isFinite(d.relais.creditsDepenses) || d.relais.creditsDepenses < 0)) ||
@@ -357,6 +400,10 @@
       this.world.current = d.current;
       this.world.cwd = d.cwd;
       this.world.user = d.user;
+      // v5 : profil local. Les anciennes sauvegardes n'en ont pas :
+      // l'identité héritée « joueur » s'applique sans verrou.
+      this.profile = d.profile ? Object.assign({}, d.profile) : null;
+      this.applyProfileIdentity();
       this.missionIndex = d.missionIndex;
       this.missionStartedAt = Number.isFinite(d.missionStartedAt) ? d.missionStartedAt : Date.now();
       this.answer = typeof d.answer === 'string' ? d.answer : null;

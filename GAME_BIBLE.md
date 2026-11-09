@@ -373,6 +373,16 @@ Après la campagne écrite (≈60 contrats), un générateur procédural de « m
 ### 9.3 Détails qui vendent la fiction
 - Prompt exact façon Kali (déjà : `┌──(user㉿ip)-[~]`), thème par machine (déjà), heure du monde dans la topbar, ventilateur qui souffle quand la RAM > 85 %, grain CRT (déjà), pauses « réseau » réalistes sur le Puits.
 
+### 9.4 La session fictive — profil local et démarrage (v5) ✅
+Avant toute chose, la station exige une **configuration** : écran d'enregistrement rétro (adaptation originale, pas de copie servile) avec nom d'utilisateur et mot de passe fictifs, confirmation, puis journal de démarrage simulé. Les relancements demandent le mot de passe. Propriétés assumées et documentées :
+
+- **Le mot de passe n'est jamais stocké en clair.** Seule une empreinte PBKDF2-SHA-256 salée (210 000 itérations) est conservée dans la sauvegarde, via `tools/credentials-entry.js` (bundle autonome `src/js/credentials.js`, `@noble/hashes` en dépendance de développement, licence MIT).
+- **La sauvegarde n'est PAS chiffrée.** Le verrou est un décor de session local — le fichier reste lisible. L'écran le dit explicitement, et il faut choisir un mot de passe fictif, jamais un vrai.
+- **Aucun secours :** un mot de passe oublié offre uniquement « effacer la sauvegarde et repartir de zéro » (confirmation tapée « EFFACER »). Aucune récupération n'est possible ou promise.
+- **Identité de session :** le prompt, `whoami`, `id`, les journaux et l'introduction reprennent le nom choisi. L'arborescence héritée reste `/home/joueur` (compatibilité des anciennes sauvegardes et des cours) ; le chemin physique n'est pas renommé. Sur les machines distantes, la session redevient l'utilisateur choisi à la connexion puis le nom local au retour (`exit`, fin de traçage).
+- **Anciennes sauvegardes :** sans profil, elles passent une seule fois par l'écran de création (nom `joueur` proposé), puis gardent leur progression. Les sauvegardes sont validées structurellement à l'import ; un profil trafiqué est rejeté avant toute mutation.
+- Les missions, dont « Premier contact » (découverte du terrain : `nmap`, `ssh joueur@10.10.0.1`, lecture de la note), et le guide initial sont inchangés.
+
 ---
 
 ## 10. Architecture technique & Tauri

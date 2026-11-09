@@ -53,11 +53,39 @@ async function makePage(t, options = {}) {
   return { page, errors };
 }
 async function ready(page, { passerIntro = true } = {}) {
+  await completeSetup(page);
   await page.waitForFunction(() => window.LABYRINTHE && window.LabyWeb?.ready() &&
     window.LabyContracts?.defs().length === 3 && window.LabyForum?.pret() &&
     window.LABYRINTHE.game.__profileWrap && window.LABYRINTHE.game.__contractsWrap &&
     window.LabyIntro?.ready(), { timeout: 10000 });
   if (passerIntro && await page.locator('#introOverlay').isVisible()) await page.locator('#introSkip').click();
+}
+// La station exige un profil avant toute chose : créer (premier lancement,
+// sauvegarde illisible ou ancienne) ou déverrouiller (session verrouillée).
+async function completeSetup(page, name = 'testeur', password = 'test1234') {
+  const setup = page.locator('#setup');
+  await page.waitForFunction(() => window.LabySetup !== undefined, { timeout: 10000 });
+  for (let attempt = 0; attempt < 60; attempt++) {
+    if (!(await setup.isVisible())) break;
+    const stage = await page.getAttribute('#setup', 'data-stage');
+    if (stage === 'form') {
+      await page.locator('#setupName').fill(name);
+      await page.locator('#setupPass').fill(password);
+      await page.locator('#setupPass2').fill(password);
+      await page.locator('#setupCreate').click();
+    } else if (stage === 'confirm') {
+      await page.locator('#setupConfirm').click();
+    } else if (stage === 'boot') {
+      await page.keyboard.press('Enter');
+    } else if (stage === 'unlock') {
+      await page.locator('#setupUnlockPass').fill(password);
+      await page.locator('#setupUnlockBtn').click();
+    } else {
+      break;
+    }
+    await page.waitForTimeout(150);
+  }
+  await page.waitForFunction(() => document.querySelector('#setup').hidden, null, { timeout: 10000 });
 }
 async function command(page, text) {
   await page.locator('#cmd').fill(text);
@@ -808,5 +836,95 @@ test('profil : le rang final exige 8000 XP et la campagne terminée', async t =>
     return { before, after };
   });
   assert.deepEqual(ranks, { before: 'PENTESTEUR', after: 'MAÎTRE DU LABYRINTHE' });
+  assert.deepEqual(errors, []);
+});
+
+test('station : première configuration avant tout, puis déverrouillage au relancement', async t => {
+  const { page, errors } = await makePage(t);
+  await page.goto(base);
+  await page.waitForFunction(() => !document.querySelector('#setup').hidden, null, { timeout: 10000 });
+  assert.equal(await page.getAttribute('#setup', 'data-stage'), 'form');
+  // Échap ne contourne pas l'enregistrement ; l'application reste inerte.
+  await page.keyboard.press('Escape');
+  assert.equal(await page.evaluate(() => document.querySelector('#setup').hidden), false);
+  assert.equal(await page.evaluate(() => document.getElementById('app').inert), true);
+  await completeSetup(page, 'mirroj', 'motdepasse-test');
+  assert.equal(await page.evaluate(() => LABYRINTHE.game.profile.nom), 'mirroj');
+  assert.equal(await page.evaluate(() => LABYRINTHE.game.world.user), 'mirroj');
+  assert.equal(await page.evaluate(() => LABYRINTHE.game.homeUser()), 'mirroj');
+  assert.match(await page.locator('#promptLoc').innerText(), /mirroj/);
+  assert.equal(await page.locator('#introOverlay').isVisible(), true);
+  await page.locator('#introSkip').click();
+  await command(page, 'whoami');
+  assert.match(await page.locator('#termOut').innerText(), /mirroj/);
+  await command(page, 'sauver');
+  const saved = await page.evaluate(() => localStorage.getItem('labyrinthe.save.v2'));
+  assert.equal(saved.includes('motdepasse-test'), false);
+  assert.equal(JSON.parse(saved).profile.nom, 'mirroj');
+  // Relancement : session verrouillée, mauvais puis bon mot de passe.
+  await page.reload();
+  await page.waitForFunction(() => !document.querySelector('#setup').hidden, null, { timeout: 10000 });
+  assert.equal(await page.getAttribute('#setup', 'data-stage'), 'unlock');
+  assert.match(await page.locator('#setupUnlockName').innerText(), /mirroj/);
+  await page.locator('#setupUnlockPass').fill('mauvais');
+  await page.locator('#setupUnlockBtn').click();
+  await page.waitForFunction(() => document.querySelector('#setupUnlockError').textContent.includes('essai 1'), null, { timeout: 5000 });
+  await completeSetup(page, 'testeur', 'motdepasse-test');
+  assert.equal(await page.evaluate(() => LABYRINTHE.game.world.user), 'mirroj');
+  assert.deepEqual(errors, []);
+});
+
+test('station : une ancienne sauvegarde sans profil passe par une création unique', async t => {
+  const { page, errors } = await makePage(t);
+  await page.goto(base);
+  await completeSetup(page, 'testeur', 'test1234');
+  await page.locator('#introSkip').click();
+  await page.evaluate(() => { LABYRINTHE.game.worldMin = 42; });
+  await command(page, 'sauver');
+  const saved = await page.evaluate(() => localStorage.getItem('labyrinthe.save.v2'));
+  const legacy = JSON.parse(saved);
+  delete legacy.profile;                 // simuler une sauvegarde d'avant les profils
+  legacy.worldMin = 4242;
+  // Nouveau contexte amorcé avec l'ancienne sauvegarde : le beforeunload de
+  // la page courante ne peut pas écraser l'import.
+  const old = await makePage(t);
+  await old.page.addInitScript(l => localStorage.setItem('labyrinthe.save.v2', JSON.stringify(l)), legacy);
+  await old.page.goto(base);
+  await old.page.waitForFunction(() => !document.querySelector('#setup').hidden, null, { timeout: 10000 });
+  assert.equal(await old.page.getAttribute('#setup', 'data-stage'), 'form');
+  assert.equal(await old.page.locator('#setupName').inputValue(), 'joueur'); // nom hérité proposé
+  await completeSetup(old.page, 'mirroj2', 'motdepasse-42');
+  assert.equal(await old.page.evaluate(() => LABYRINTHE.game.profile.nom), 'mirroj2');
+  assert.equal(await old.page.evaluate(() => LABYRINTHE.game.world.user), 'mirroj2');
+  const wm = await old.page.evaluate(() => LABYRINTHE.game.worldMin);
+  assert(wm >= 4242 && wm < 4300, 'worldMin=' + wm); // la partie est préservée (l'horloge avance)
+  await command(old.page, 'sauver');
+  const migrated = await old.page.evaluate(() => JSON.parse(localStorage.getItem('labyrinthe.save.v2')));
+  assert.equal(migrated.profile.nom, 'mirroj2');
+  assert.equal(migrated.worldMin, 4242);
+  assert.deepEqual(errors, []);
+  assert.deepEqual(old.errors, []);
+});
+
+test('station : « mot de passe oublié » n’offre qu’une remise à zéro explicite', async t => {
+  const { page, errors } = await makePage(t);
+  await page.goto(base);
+  await completeSetup(page, 'testeur', 'test1234');
+  await page.locator('#introSkip').click();
+  await command(page, 'sauver');
+  await page.reload();
+  await page.waitForFunction(() => !document.querySelector('#setup').hidden, null, { timeout: 10000 });
+  assert.equal(await page.getAttribute('#setup', 'data-stage'), 'unlock');
+  await page.locator('#setupForgot').click();
+  assert.equal(await page.locator('#setupWipeZone').isVisible(), true);
+  assert.equal(await page.locator('#setupWipeBtn').isDisabled(), true);
+  await page.locator('#setupWipeConfirm').fill('EFFACER');
+  assert.equal(await page.locator('#setupWipeBtn').isDisabled(), false);
+  await page.locator('#setupWipeBtn').click();
+  // Remise à zéro : retour sur le formulaire (après rechargement), sauvegarde effacée.
+  await page.waitForFunction(() => {
+    const s = document.querySelector('#setup');
+    return s && !s.hidden && s.dataset.stage === 'form' && localStorage.getItem('labyrinthe.save.v2') === null;
+  }, null, { timeout: 10000 });
   assert.deepEqual(errors, []);
 });

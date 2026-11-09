@@ -123,6 +123,102 @@
   </div>
 </div>
 
+<!-- ======================= CONFIGURATION DE LA STATION ======================= -->
+<!-- Affichée avant toute chose au premier lancement (ou après un reset) :
+     le joueur crée son profil local. Le mot de passe n'est jamais conservé
+     en clair et ne chiffre pas la sauvegarde — voir le panneau lui-même. -->
+<section id="setup" class="setup-overlay" role="dialog" aria-modal="true" aria-labelledby="setupHeading" data-stage="form" hidden>
+  <div class="setup-shell">
+    <header class="setup-titlebar">
+      <div class="setup-brand"><span class="setup-brand-mark" aria-hidden="true">L<span>_</span></span>
+        <div><b>LABYRINTHE</b><small id="setupSub">ENREGISTREMENT DE LA STATION</small></div>
+      </div>
+      <div class="setup-net"><i></i> RÉSEAU SIMULÉ</div>
+    </header>
+
+    <!-- ======= ÉTAPE 1 · FORMULAIRE ======= -->
+    <div class="setup-stage" data-setup-stage="form">
+      <p class="setup-kicker"><span>STATION / 10.10.0.5</span><span class="setup-kicker-line"></span><span>AVANT LA PREMIÈRE MISSION</span></p>
+      <h1 id="setupHeading" class="setup-title">Configure ta <em>station.</em></h1>
+      <p class="setup-lead">Avant d’entrer dans le Labyrinthe, crée le profil de ta session. Ton poste garde ce nom à chaque lancement.</p>
+      <form id="setupForm" autocomplete="off" novalidate>
+        <label class="setup-field" for="setupName"><span>NOM D’UTILISATEUR</span>
+          <input id="setupName" name="username" type="text" maxlength="24" minlength="2" required
+                 spellcheck="false" autocapitalize="off" autocorrect="off" placeholder="ex. mirroj" aria-describedby="setupNameHint">
+          <small id="setupNameHint">2–24 caractères · minuscules, chiffres, « - » et « _ » · ne commence pas par un chiffre.</small>
+        </label>
+        <label class="setup-field" for="setupPass"><span>MOT DE PASSE</span>
+          <input id="setupPass" name="new-password" type="password" maxlength="128" minlength="4" required
+                 autocomplete="new-password" spellcheck="false" aria-describedby="setupPassHint">
+          <small id="setupPassHint">4 caractères minimum. Mot de passe <b>fictif</b> : n’utilise pas un vrai mot de passe protégeant autre chose.</small>
+        </label>
+        <label class="setup-field" for="setupPass2"><span>CONFIRMER LE MOT DE PASSE</span>
+          <input id="setupPass2" name="confirm-password" type="password" maxlength="128" minlength="4" required
+                 autocomplete="new-password" spellcheck="false">
+        </label>
+        <p id="setupError" class="setup-error" role="alert" hidden></p>
+        <div class="setup-actions">
+          <button type="submit" id="setupCreate" class="setup-btn setup-btn-primary">CRÉER LE PROFIL <span aria-hidden="true">→</span></button>
+        </div>
+      </form>
+      <p class="setup-foot"><span aria-hidden="true">◇</span> Le profil reste sur <b>cette machine</b>. Le mot de passe n’est jamais écrit en clair — seule une empreinte salée est conservée.</p>
+    </div>
+
+    <!-- ======= ÉTAPE 2 · CONFIRMATION ======= -->
+    <div class="setup-stage" data-setup-stage="confirm" hidden>
+      <p class="setup-kicker"><span>DERNIER CONTRÔLE</span><span class="setup-kicker-line"></span><span>PRÊT À ENREGISTRER</span></p>
+      <h1 class="setup-title">Tout est <em>réuni ?</em></h1>
+      <p class="setup-lead">Vérifie une dernière fois avant que la station ne démarre.</p>
+      <dl class="setup-recap">
+        <div><dt>NOM D’UTILISATEUR</dt><dd id="setupRecapName">—</dd></div>
+        <div><dt>MOT DE PASSE</dt><dd id="setupRecapPass">••••••••</dd></div>
+        <div><dt>ENREGISTREMENT</dt><dd>LOCAL · CETTE MACHINE UNIQUEMENT</dd></div>
+      </dl>
+      <p class="setup-note"><b>À savoir.</b> Au prochain lancement, la station demandera ce mot de passe. C’est un verrou <b>fictif</b> : il ne chiffre pas ta sauvegarde, qui reste un simple fichier lisible. Personne ne pourra non plus te le redonner s’il est oublié.</p>
+      <div class="setup-actions">
+        <button type="button" id="setupEdit" class="setup-btn setup-btn-ghost">MODIFIER</button>
+        <button type="button" id="setupConfirm" class="setup-btn setup-btn-primary">CONFIRMER ET DÉMARRER <span aria-hidden="true">→</span></button>
+      </div>
+      <p class="setup-foot"><span aria-hidden="true">↵</span> Entrée = confirmer · Échap = modifier</p>
+    </div>
+
+    <!-- ======= ÉTAPE 3 · JOURNAL DE DÉMARRAGE ======= -->
+    <div class="setup-stage" data-setup-stage="boot" hidden>
+      <p class="setup-kicker"><span>SÉQUENCE DE DÉMARRAGE</span><span class="setup-kicker-line"></span><span>LABYRINTHE OS 1.0</span></p>
+      <pre id="setupBootLog" class="setup-bootlog" aria-live="polite"></pre>
+      <p class="setup-foot" id="setupBootHint"><span class="setup-caret" aria-hidden="true">▌</span> appuie sur une touche pour passer</p>
+    </div>
+
+    <!-- ======= RETOUR · SESSION VERROUILLÉE ======= -->
+    <div class="setup-stage" data-setup-stage="unlock" hidden>
+      <p class="setup-kicker"><span>SESSION VERROUILLÉE</span><span class="setup-kicker-line"></span><span>RETOUR SUR TA STATION</span></p>
+      <h1 class="setup-title">Bon retour,<br><em><span id="setupUnlockName">joueur</span>.</em></h1>
+      <p class="setup-lead">La station attend ton mot de passe pour rouvrir la session.</p>
+      <form id="setupUnlockForm" autocomplete="off" novalidate>
+        <label class="setup-field" for="setupUnlockPass"><span>MOT DE PASSE</span>
+          <input id="setupUnlockPass" name="unlock-password" type="password" maxlength="128" required
+                 autocomplete="current-password" spellcheck="false">
+        </label>
+        <p id="setupUnlockError" class="setup-error" role="alert" hidden></p>
+        <div class="setup-actions">
+          <button type="submit" id="setupUnlockBtn" class="setup-btn setup-btn-primary">DÉVERROUILLER <span aria-hidden="true">→</span></button>
+        </div>
+      </form>
+      <p class="setup-foot"><span aria-hidden="true">◇</span> Verrou local fictif. La sauvegarde n’est pas chiffrée.</p>
+      <div class="setup-forgot">
+        <button type="button" id="setupForgot" class="setup-link" aria-expanded="false" aria-controls="setupWipeZone">Mot de passe oublié ?</button>
+        <div id="setupWipeZone" class="setup-wipe" hidden>
+          <p><b>Aucune récupération n’est possible.</b> Effacer la sauvegarde supprime définitivement ta progression de cette machine.</p>
+          <label class="setup-field" for="setupWipeConfirm"><span>TAPE « EFFACER » POUR CONFIRMER</span>
+            <input id="setupWipeConfirm" type="text" autocomplete="off" spellcheck="false" placeholder="EFFACER" maxlength="16">
+          </label>
+          <button type="button" id="setupWipeBtn" class="setup-btn setup-btn-danger" disabled>EFFACER LA SAUVEGARDE ET REPARTIR DE ZÉRO</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
 <!-- ======================= INTRODUCTION NARRATIVE ======================= -->
 <section id="introOverlay" class="intro-overlay" role="dialog" aria-modal="true" aria-labelledby="introTitle0" hidden>
   <div class="intro-shell">
@@ -168,7 +264,7 @@
                 <text x="17" y="219" fill="#65a4b1" font-size="9" font-family="monospace">SOURCE ?</text>
               </svg>
             </div>
-            <div class="intro-signal-data"><div><span>ORIGINE</span><b>CARTOGRAPHE</b></div><div><span>SESSION</span><b>joueur@10.10.0.5</b></div><div><span>ÉTAT</span><b class="intro-accent">ACCÈS ACCORDÉ</b></div></div>
+            <div class="intro-signal-data"><div><span>ORIGINE</span><b>CARTOGRAPHE</b></div><div><span>SESSION</span><b><span data-intro-user-name>joueur</span>@10.10.0.5</b></div><div><span>ÉTAT</span><b class="intro-accent">ACCÈS ACCORDÉ</b></div></div>
             <p class="intro-aside-note">Une carte n’indique pas la réponse.<br>Elle montre où commencer.</p>
           </aside>
         </div>
@@ -190,9 +286,9 @@
             <div class="intro-aside-top"><span>APERÇU DU TERMINAL</span><span>● PRÊT</span></div>
             <div class="intro-console-screen">
               <div class="intro-console-label">SESSION LOCALE / 10.10.0.5</div>
-              <div><span class="intro-console-prompt">joueur@poste:~$</span> pwd</div>
+              <div><span class="intro-console-prompt" data-intro-user>joueur@poste:~$</span> pwd</div>
               <div class="intro-console-result">/home/joueur</div>
-              <div class="intro-console-cursor"><span class="intro-console-prompt">joueur@poste:~$</span> <b>▌</b></div>
+              <div class="intro-console-cursor"><span class="intro-console-prompt" data-intro-user>joueur@poste:~$</span> <b>▌</b></div>
             </div>
             <div class="intro-console-note"><span>CONSEIL 01</span><p><code>pwd</code> indique où tu te trouves. Tu n’as rien besoin d’installer : tout se passe dans le jeu.</p></div>
           </aside>
@@ -286,6 +382,7 @@
 </div>
 
 <script src="js/bridge.js"></script>
+<script src="js/credentials.js"></script>
 <script src="js/py.js"></script>
 <script src="js/engine.js"></script>
 <script src="js/campaign.js"></script>
@@ -297,6 +394,7 @@
 <script src="js/programs.js"></script>
 <script src="js/audio.js"></script>
 <script src="js/realcmd.js"></script>
+<script src="js/setup.js"></script>
 <script src="js/ui.js"></script>
 <script src="js/tutorial.js"></script>
 <script src="js/intro.js"></script>

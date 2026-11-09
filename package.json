@@ -9,12 +9,14 @@
     "dev": "tauri dev",
     "build": "tauri build",
     "build:sandbox": "node tools/build-sandbox.cjs",
+    "build:credentials": "node tools/build-credentials.cjs",
     "single": "python3 build-single.py",
     "test": "node --test tests/unit.test.cjs tests/campaign.test.cjs tests/market.test.cjs",
     "test:browser": "node --test tests/browser.test.cjs"
   },
   "devDependencies": {
     "@jitl/quickjs-singlefile-browser-release-sync": "0.32.0",
+    "@noble/hashes": "1.8.0",
     "@tauri-apps/cli": "^2",
     "esbuild": "0.28.2",
     "playwright": "1.65.0",
