@@ -412,7 +412,8 @@ test('sauvegarde, restauration, import invalide et reset web', async t => {
 
   await page.evaluate(() => { window.__oldGame = LABYRINTHE.game; });
   await command(page, 'reset oui');
-  await page.waitForFunction(() => !window.__oldGame && window.LABYRINTHE?.game?.__contractsWrap && LABYRINTHE.game.__profileWrap);
+  // La remise à zéro efface la station : premier lancement après rechargement.
+  await page.waitForFunction(() => !window.__oldGame, null, { timeout: 10000 });
   await ready(page, { passerIntro: false });
   assert.equal(await page.locator('#introOverlay').isVisible(), true);
   const state = await page.evaluate(() => {
@@ -557,7 +558,11 @@ test('bb-03 depuis une machine distante : rapport obligatoire et récompense uni
   assert.equal(await page.evaluate(() => LABYRINTHE.game.events.filter(e => e.type === 'sqlmap').length), 0);
   await command(page, 'sqlmap -u "http://10.10.2.10/login.php?id=1" --dbs --batch');
   assert.equal(await page.evaluate(() => LABYRINTHE.game.events.filter(e => e.type === 'sqlmap').length), 1);
-  assert.deepEqual(await page.evaluate(() => LABYRINTHE.game.contractsState), { active: ['bb-03'], done: [] });
+  const acceptState = await page.evaluate(() => LABYRINTHE.game.contractsState);
+  assert.equal(acceptState.active.length, 1);
+  assert.equal(acceptState.active[0].id, 'bb-03');
+  assert.equal(typeof acceptState.active[0].ts, 'number');
+  assert.deepEqual(acceptState.done, []);
   assert.equal(await page.evaluate(() => LABYRINTHE.game.credits), 0);
 
   await command(page, 'rapport bb-03');
@@ -606,7 +611,10 @@ test('pont Tauri simulé : écritures ordonnées et reset sans réimport de l’
     LABYRINTHE.game.credits = 777;
   });
   await command(page, 'sauver');
+  await page.evaluate(() => { window.__oldGame = LABYRINTHE.game; });
   await command(page, 'reset oui');
+  await page.waitForFunction(() => !window.__oldGame, null, { timeout: 10000 });
+  await completeSetup(page); // la station effacée repart sur l'enregistrement
   await page.waitForFunction(() => window.LABYRINTHE?.game?.__contractsWrap && LABYRINTHE.game.credits === 0);
   const state = await page.evaluate(() => ({ tauri: LabyBridge.tauri, credits: LABYRINTHE.game.credits,
     db: localStorage.getItem('__mockSQLite'), legacy: localStorage.getItem('labyrinthe.save.v2') }));
@@ -926,5 +934,57 @@ test('station : « mot de passe oublié » n’offre qu’une remise à zéro ex
     const s = document.querySelector('#setup');
     return s && !s.hidden && s.dataset.stage === 'form' && localStorage.getItem('labyrinthe.save.v2') === null;
   }, null, { timeout: 10000 });
+  assert.deepEqual(errors, []);
+});
+
+test('trace — onglet MÉMOIRE : barres par machine depuis echo, triées et totalisées', async t => {
+  const { page, errors } = await makePage(t);
+  await page.goto(base);
+  await ready(page);
+  // Silence : la mémoire est vide
+  await page.locator('#tabTraceMemory').click();
+  await page.locator('.memory-empty').waitFor();
+  assert.equal(await page.locator('#traceDetection').isHidden(), true);
+  assert.equal(await page.locator('#traceMemory').isVisible(), true);
+  // Trois machines : bruit, trace transmise, silence
+  await page.evaluate(() => {
+    const g = LABYRINTHE.game;
+    if (!g.echo) g.echo = { nodes: {} };
+    g.echo.nodes = {
+      depot:    { bruit: 30, signalements: 0, tracee: false },
+      academie: { bruit: 85, signalements: 2, tracee: true },
+      shellLab: { bruit: 0,  signalements: 0, tracee: false }
+    };
+  });
+  await page.waitForFunction(() => document.querySelectorAll('#memoryBars .memory-row').length === 2);
+  const rows = await page.locator('#memoryBars .memory-name').allTextContents();
+  assert.equal(rows[0], 'ACADEMIE — Formation');           // triée : la plus bruyante d'abord
+  assert.equal(rows[1], 'Dépôt de preuves');
+  const vals = await page.locator('#memoryBars .memory-val').allTextContents();
+  assert.match(vals[0], /85/);
+  assert.match(vals[1], /30/);
+  assert.match(await page.locator('#memoryBars .memory-total').innerText(), /115/);
+  assert.equal(await page.locator('#memoryBars .memory-row.traced').count(), 1);
+  // Retour DÉTECTION
+  await page.locator('#tabTraceDetection').click();
+  assert.equal(await page.locator('#traceMemory').isHidden(), true);
+  assert.equal(await page.locator('#traceDetection').isVisible(), true);
+  assert.deepEqual(errors, []);
+});
+
+test('démarrage : les modules s’embrâncent sur la partie restaurée (laby:ready), pas sur le DOM', async t => {
+  const { page, errors } = await makePage(t);
+  await page.goto(base);
+  await ready(page);
+  const flags = await page.evaluate(() => ({
+    ready: window.LabyReady === true,
+    echo: !!LABYRINTHE.game.__echoWrap,
+    clock: !!LABYRINTHE.game.__clockWrap,
+    profile: !!LABYRINTHE.game.__profileWrap,
+    contracts: !!LABYRINTHE.game.__contractsWrap,
+    mail: !!LABYRINTHE.game.__mailWrap,
+    pause: typeof LabyPause === 'object' && !LabyPause.active()
+  }));
+  assert.deepEqual(flags, { ready: true, echo: true, clock: true, profile: true, contracts: true, mail: true, pause: true });
   assert.deepEqual(errors, []);
 });

@@ -29,7 +29,8 @@
 
   function brancher() {
     const g = global.LABYRINTHE && global.LABYRINTHE.game;
-    if (!g || typeof g.tick !== 'function' || g.__clockWrap) return void setTimeout(brancher, 500);
+    if (!g || typeof g.tick !== 'function') { console.error('[clock] game indisponible au signal laby:ready'); return; }
+    if (g.__clockWrap) return;
     g.__clockWrap = true;
     g._clockLast = Date.now();
     const origTick = g.tick.bind(g);
@@ -47,6 +48,7 @@
   /* API pour quêtes/PNJ datés (T10/T13) : window.LabyClock */
   global.LabyClock = { isoMonde, dateMonde, fmtMonde };
 
-  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', brancher);
+  if (global.LabyPause && global.LabyPause.quandPret) global.LabyPause.quandPret(brancher);
+  else if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', brancher);
   else brancher();
 })(typeof window !== 'undefined' ? window : globalThis);

@@ -246,7 +246,7 @@
 
     // battements du monde
     setInterval(() => {
-      if (global.LabyIntro && global.LabyIntro.isOpen()) return;
+      if (global.LabyPause ? global.LabyPause.active() : (global.LabyIntro && global.LabyIntro.isOpen())) return;
       if (g.traceEnabled === false) return;       // mode serein : les chasseurs dorment aussi
       const monde = g.worldMin || 0;
       const n = etat(g);
@@ -380,12 +380,14 @@ function cmdVols(g, a) {
   };
 
   if (typeof document !== 'undefined') {
+    // Le monde doit être restauré avant que les chasseurs s'arment.
     const boot = () => {
       const g = game();
-      if (!g || !g.world || !g.world.nodes) return void setTimeout(boot, 500);
+      if (!g || !g.world || !g.world.nodes) { console.error('[npc] monde indisponible au signal laby:ready'); return; }
       demarrer(g);
     };
-    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot);
+    if (global.LabyPause && global.LabyPause.quandPret) global.LabyPause.quandPret(boot);
+    else if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot);
     else boot();
   }
   if (typeof module !== 'undefined' && module.exports) module.exports = global.LabyNPC;

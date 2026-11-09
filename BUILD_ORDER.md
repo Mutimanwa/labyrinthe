@@ -181,3 +181,38 @@ l'écart.
 **Introduction narrative.** Une nouvelle partie commence par trois écrans facultatifs : message du Cartographe, prise en main du poste, puis briefing ACADEMIE et choix du guide. L'introduction se passe avec le bouton ou Échap et se revoit par ⓘ ou `intro`. L'étape est sauvegardée, les anciennes parties ne sont pas interrompues, et la simulation est en pause pendant la lecture. Les tests navigateur couvrent la reprise, le clavier, l'import et le monofichier ; le lancement Tauri natif reste à vérifier.
 
 **Configuration de la station (v5).** Avant l'introduction, au premier lancement, le joueur configure sa station : nom d'utilisateur et mot de passe fictifs (PBKDF2-SHA-256 salé, jamais en clair), écran de confirmation, journal de démarrage simulé. Les lancements suivants exigent le mot de passe (verrou local fictif, sauvegarde **non chiffrée** ; aucune récupération, seulement une remise à zéro tapée). Identité reprise dans le prompt et `whoami` ; les anciennes sauvegardes créent un profil une seule fois sans perdre leur progression. La première mission — découverte du terrain avec le guide — démarre ensuite inchangée. Tests navigateur : création, verrouillage/déverrouillage, mauvais mot de passe, migration des anciennes sauvegardes, remise à zéro depuis l'écran de verrouillage.
+
+## Boucle principale et décorateurs (ordre réel, 2026-11)
+
+L'ordre des étapes à chaque image est **déclaré** dans `ui.js`
+(`tickPipeline`) et vaut pour tous les environnements :
+
+1. **simulation** — `game.tick(now)` : processus, horloge du monde,
+   décroissance ECHO (via les décorateurs empilés sur `game.tick`).
+2. **affichage** — panneaux dérivés de la simulation : processus, trace,
+   mémoire du monde.
+
+Les décorateurs sur `game.tick` ne se placent pas « à côté » de
+`tickPipeline` : ils le modifient de l'intérieur. L'empilement suit
+l'**ordre d'enregistrement**, pas l'ordre du fichier :
+
+- `programs.js` **définit** `game.tick` (base : progression des
+  processus, traçage, effets) — installé par `ui.js` (`newGame()`), pas
+  à `DOMContentLoaded`.
+- `clock.js` empile son décorateur à `DOMContentLoaded` : il enveloppe la
+  base, avance `worldMin` (1 s réelle = 1 min monde) avant la base.
+- `echo.js` empile à `DOMContentLoaded`, **après** `clock.js` : son
+  décorateur est donc le plus externe. Il applique la décroissance du
+  capital trace en fonction du delta `worldMin` accumulé, **avant** que
+  l'horloge ne l'incrémente à cette image — un tick de décalage, sans
+  conséquence.
+
+Règle pratique : si un système doit observer l'heure monde d'avant le
+tick, il s'empile avant `clock.js` ; s'il doit réagir à l'heure monde
+déjà avancée, il l'avance lui-même dans son décorateur ou le lit après
+`game.tick(...)`. Les ordonnanceurs indépendants (PNJ, forum, mail,
+badge profil) ne font PAS partie de `tickPipeline` : ils utilisent leurs
+propres intervalles et respectent tous la pause globale `LabyPause`
+(module `js/pause.js`, chargé en premier). Toute nouvelle étape
+périodique doit soit entrer dans `tickPipeline` (ordre garanti), soit
+respecter `LabyPause` et être documentée ici.

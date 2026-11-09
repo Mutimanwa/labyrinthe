@@ -123,6 +123,10 @@ test('sauvegarde de l’API, compatibilité ancienne et import invalide non dest
     d => { d.narrative = 'journal cassé'; },
     d => { d.api.users.push(null); },
     d => { d.contracts.active = {}; },
+    d => { d.contracts.active = [{ id: 42, ts: 1 }]; },
+    d => { d.contracts.active = [{ id: 'bb-01', ts: -1 }]; },
+    d => { d.contracts.active = [{ id: 'bb-01', ts: 'hier' }]; },
+    d => { d.contracts.done = [42]; },
     d => { d.tutorial.step = 1.5; },
     d => { d.intro.terminee = 'oui'; },
     d => { d.intro.etape = -1; },
@@ -331,4 +335,40 @@ test('profil local : un nom déjà utilisé comme racine est refusé', () => {
   assert.equal(C.validName('mirroj-'), true);
   assert.equal(C.validName('mir_roj'), true);
   assert.equal(C.validName('mir roj'), false);
+});
+
+test('contrat web : « total affiché » accepte le total réel de l’API, quel qu’il soit', async () => {
+  const g = newGame();
+  g.world.current = 'apiLab';
+  g.world.node('apiLab').discovered = true;
+  // Le joueur a créé un utilisateur au préalable : le total passe de 5 à 6.
+  g.api.handle('POST', '/api/users', {
+    headers: { authorization: 'Bearer dev-token-2026' },
+    body: JSON.stringify({ name: 'Test', email: 'test@example.invalid' })
+  });
+  g.world.node('apiLab').addFile('/home/joueur/projet/src/lib/users.ts', `async function login(email, password) {
+    const r = await fetch('/api/auth/login', {method:'POST',
+      headers:{'Content-Type':'application/json'}, body:JSON.stringify({email,password})});
+    return await r.json();
+  }
+  const session = await login('eric@academie.bi','motdepasse123');
+  const r = await fetch('/api/users', {headers:{Authorization:'Bearer ' + session.token}});
+  console.log((await r.json()).total);`, { owner: 'joueur' });
+  const out = await g.runWebFile('/home/joueur/projet/src/lib/users.ts', 'tsx');
+  assert.equal(out.code, 0);
+  const mission = WebDev.WEB_MISSIONS[1];
+  assert.equal(mission.validate(g.world, g.shell, g.events).done, true);
+});
+
+test('contrats : les anciennes sauvegardes à chaînes nues sont migrées vers { id, ts }', () => {
+  const g = newGame();
+  const saved = JSON.parse(g.serialize());
+  saved.contracts = { active: ['bb-01', 'bb-03'], done: ['bb-02'] };
+  const loaded = newGame();
+  loaded.restore(JSON.stringify(saved));
+  assert.deepEqual(loaded.contractsState, {
+    active: [{ id: 'bb-01', ts: 0 }, { id: 'bb-03', ts: 0 }],
+    done: ['bb-02']
+  });
+  assert.deepEqual(JSON.parse(loaded.serialize()).contracts.active[0], { id: 'bb-01', ts: 0 });
 });

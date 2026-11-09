@@ -37,13 +37,27 @@
     } catch (e) { console.warn('[contrats] chargement impossible', e); }
   }
 
-  /* ------------------------------------------------ état (persisté en v4) */
+  /* ------------------------------------------------ état (persisté en v4→v5) */
   function game() { return global.LABYRINTHE && global.LABYRINTHE.game; }
+  // v5 : chaque contrat actif porte la date d'acceptation. Les anciennes
+  // sauvegardes stockaient des chaînes nues ; on les migre vers { id, ts: 0 }
+  // (epoch 0 = aucune contrainte temporelle, comportement d'avant).
+  function normeActive(s) {
+    if (!Array.isArray(s.active)) { s.active = []; return s; }
+    s.active = s.active
+      .map(x => (typeof x === 'string' ? { id: x, ts: 0 } : x))
+      .filter(x => x && typeof x === 'object' && typeof x.id === 'string')
+      .map(x => ({ id: x.id, ts: Number.isFinite(x.ts) && x.ts >= 0 ? x.ts : 0 }));
+    if (!Array.isArray(s.done)) s.done = [];
+    s.done = s.done.filter(x => typeof x === 'string');
+    return s;
+  }
   function etat() {
     const g = game();
     if (!g.contractsState) g.contractsState = { active: [], done: [] };
-    return g.contractsState;
+    return normeActive(g.contractsState);
   }
+  function activeIds(s) { return normeActive(s || etat()).active.map(x => x.id); }
 
   /* ------------------------------------------------ évaluation des victoires */
   function matchSpec(ev, spec) {
@@ -57,9 +71,12 @@
     }
     return true;
   }
-  function complet(def) {
+  // since : les faits antérieurs à l'acceptation ne valident PAS le contrat.
+  function complet(def, since) {
     const evs = (game() && game().events) || [];
-    return ((def.win && def.win.events) || []).every(sp => evs.some(ev => matchSpec(ev, sp)));
+    const floor = Number.isFinite(since) ? since : 0;
+    return ((def.win && def.win.events) || [])
+      .every(sp => evs.some(ev => (ev.at || 0) >= floor && matchSpec(ev, sp)));
   }
 
   function resumerSpec(sp) {
@@ -106,13 +123,14 @@
   function surEvenement() {
     const s = etat();
     let repeindre = false;
-    for (const id of s.active.slice()) {
+    for (const entry of s.active.slice()) {
+      const id = entry.id;
       if (s.done.includes(id)) continue;
       const def = defs.get(id);
-      if (def && complet(def) && rapportPret(def)) {
+      if (def && complet(def, entry.ts) && rapportPret(def)) {
         // Marquer avant l'événement contract-done pour éviter une récompense
         // récursive, mais seulement après avoir vérifié le rapport exigé.
-        s.active = s.active.filter(x => x !== id);
+        s.active = s.active.filter(x => x.id !== id);
         s.done.push(id);
         recompenser(def);
         repeindre = true;
@@ -124,7 +142,8 @@
   /* embranchement sur le tuyau unique (pattern du wrapping de game.say) */
   function embrancherBus() {
     const g = game();
-    if (!g || g.__contractsWrap) return void setTimeout(embrancherBus, 500);
+    if (!g) { console.error('[contracts] game indisponible au signal laby:ready'); return; }
+    if (g.__contractsWrap) return;
     g.__contractsWrap = true;
     const origRecord = g.record.bind(g);
     g.record = function (type, data) {
@@ -137,8 +156,8 @@
   function accepter(id) {
     const g = game();
     const s = etat();
-    if (!s.active.includes(id) && !s.done.includes(id)) {
-      s.active.push(id);
+    if (!activeIds(s).includes(id) && !s.done.includes(id)) {
+      s.active.push({ id, ts: Date.now() });
       g.record('contract-accept', { id });
       if (g.say) g.say(`Contrat accepté : ${defs.get(id).titre} — objectifs affichés au tableau.`, 'ok');
     }
@@ -149,7 +168,7 @@
   function carte(def) {
     const s = etat();
     const fait = s.done.includes(def.id);
-    const actif = s.active.includes(def.id);
+    const actif = activeIds(s).includes(def.id);
     const c = el('div', 'sd-card' + (fait ? ' sd-fait' : actif ? ' sd-actif' : ''));
     const head = el('div', 'sd-head');
     head.appendChild(el('span', 'sd-titre', (fait ? '✔ ' : '') + def.titre));
@@ -215,8 +234,12 @@
   function boot() {
     charger().then(() => { embrancherBus(); observer(); });
   }
-  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot);
-  else boot();
+  const lancer = () => {
+    if (global.LabyPause && global.LabyPause.quandPret) global.LabyPause.quandPret(boot);
+    else if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot);
+    else boot();
+  };
+  lancer();
 
-  global.LabyContracts = { defs: () => Array.from(defs.values()), etat, peindre };
+  global.LabyContracts = { defs: () => Array.from(defs.values()), etat, peindre, activeIds: () => activeIds(etat()) };
 })(typeof window !== 'undefined' ? window : globalThis);

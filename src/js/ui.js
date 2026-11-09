@@ -94,6 +94,17 @@
   // sauvegarde pendant ce temps.
   let bootGate = true;
 
+  // Ordre déclaré de la boucle principale : chaque image, la simulation
+  // passe AVANT l'affichage. Les décorateurs sur game.tick (programs.js,
+  // clock.js, echo.js) s'exécutent de l'intérieur de l'étape « simulation » ;
+  // leur empilement suit l'ordre d'enregistrement — voir BUILD_ORDER.md.
+  const tickPipeline = [
+    // 1) simulation : processus, horloge du monde, décroissance ECHO
+    { nom: 'simulation', run: now => { if (game) game.tick(now); } },
+    // 2) panneaux alimentés par la simulation
+    { nom: 'affichage', run: () => { if (game) { renderProcesses(); renderTrace(); } } }
+  ];
+
   // -------------------------------------------------- THÈME
   function applyTheme() {
     const t = game.currentTheme();
@@ -446,12 +457,59 @@
       $('traceNote').textContent = game.traceKillActive()
         ? 'Attaque lente en cours. exit annule la détection.'
         : 'hydra -t 1 ralentit la détection. exit annule.';
-    } else {
+      } else {
       p.className = 'panel idle';
       $('traceNum').textContent = '--.--';
       $('traceNote').textContent = game.traceEnabled
         ? 'Aucun traçage. trace off pour le mode serein.'
         : 'Traçage désactivé — mode serein.';
+    }
+    const memView = $('traceMemory');
+    if (memView && !memView.hidden) renderMemory();
+  }
+
+  // -------------------------------------------------- TRACE — MÉMOIRE DU MONDE
+  // Capital trace persisté par machine (game.echo), incrémenté par chaque
+  // action bruyante et décroissant lentement (demi-vie ≈ 6 h monde).
+  function renderMemory() {
+    const bars = $('memoryBars');
+    if (!bars) return;
+    const e = game && game.echo && game.echo.nodes;
+    const rows = [];
+    if (e) {
+      for (const id of Object.keys(e)) {
+        const c = e[id];
+        const v = Math.round(c.bruit || 0);
+        if (v > 0 || (c.signalements || 0) > 0) {
+          const n = game.world && game.world.nodes && game.world.nodes[id];
+          rows.push({ id, name: (n && n.name) || id, bruit: v, signalements: c.signalements || 0, tracee: !!c.tracee });
+        }
+      }
+      rows.sort((a, b) => b.bruit - a.bruit);
+    }
+    bars.innerHTML = '';
+    if (!rows.length) {
+      bars.appendChild(el('div', 'memory-empty', 'Aucune machine ne se souvient de toi. Le silence est ton meilleur allié… pour l’instant.'));
+    } else {
+      for (const row of rows.slice(0, 8)) {
+        const r = el('div', 'memory-row' + (row.tracee ? ' traced' : row.bruit >= 60 ? ' hot' : ''));
+        r.appendChild(el('div', 'memory-name', row.name));
+        const cap = el('div', 'memory-cap');
+        const fill = el('div', 'memory-fill');
+        fill.style.width = Math.min(100, row.bruit) + '%';
+        cap.appendChild(fill);
+        r.appendChild(cap);
+        r.appendChild(el('div', 'memory-val', (row.tracee ? '✗ ' : '') + row.bruit));
+        r.title = row.tracee
+          ? `${row.name} : signature transmise au fournisseur (${row.signalements} signalement(s))`
+          : `${row.name} : capital trace ${row.bruit}/100`;
+        bars.appendChild(r);
+      }
+      const total = rows.reduce((sum, r) => sum + r.bruit, 0);
+      const t = el('div', 'memory-total');
+      t.appendChild(el('span', '', 'mémoire totale'));
+      t.appendChild(el('b', '', String(total)));
+      bars.appendChild(t);
     }
   }
 
@@ -1163,6 +1221,13 @@
     }
     // La sauvegarde est restaurée ou mise de côté : la barrière s'ouvre.
     bootGate = false;
+    // Partie restaurée ou ouverte : les modules externes (ECHO, PNJ, horloge,
+    // forum, mail, contrats, profil) peuvent s'embrancher sur le jeu final.
+    // Émis AVANT le rendu : même si le peintre échoue, les modules vivent.
+    // Tout module chargé après cet instant doit vérifier LabyReady d'abord.
+    window.LabyReady = true;
+    try { document.dispatchEvent(new CustomEvent('laby:ready', { detail: { game } })); }
+    catch (e) { console.error('[ui] laby:ready', e); }
     fullRender();
     if (window.LabyTutorial) window.LabyTutorial.start();
     if (window.LabyIntro) window.LabyIntro.start({ onChange: autoSave });
@@ -1244,17 +1309,27 @@
     $('icoSwap').onclick = () => document.body.classList.toggle('swap');
     $('icoSave').onclick = () => submit('sauver');
     $('icoHelp').onclick = () => submit('help');
+    // PANNEAU TRACE — bascule DÉTECTION / MÉMOIRE
+    const setTraceTab = memory => {
+      $('traceDetection').hidden = memory;
+      $('traceMemory').hidden = !memory;
+      $('tabTraceDetection').classList.toggle('on', !memory);
+      $('tabTraceMemory').classList.toggle('on', memory);
+      $('tabTraceDetection').setAttribute('aria-pressed', String(!memory));
+      $('tabTraceMemory').setAttribute('aria-pressed', String(memory));
+      if (memory) renderMemory();
+    };
+    $('tabTraceDetection').onclick = () => setTraceTab(false);
+    $('tabTraceMemory').onclick = () => setTraceTab(true);
 
     // boucle d'horloge : 20 images/seconde
     setInterval(() => {
       const now = Date.now();
-      if ((window.LabySetup && window.LabySetup.isOpen()) ||
-          (window.LabyIntro && window.LabyIntro.isOpen())) {
+      if (window.LabyPause && window.LabyPause.active()) {
         if (game._clockLast !== undefined) game._clockLast = now;
         return;
       }
-      game.tick(now);
-      renderProcesses(); renderTrace();
+      for (const etape of tickPipeline) etape.run(now);
     }, 50);
     setInterval(autoSave, 30000);
     window.addEventListener('beforeunload', autoSave);

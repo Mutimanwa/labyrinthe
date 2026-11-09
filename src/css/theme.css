@@ -769,3 +769,27 @@ body.swap #colRight{order:-1}
 @media (prefers-reduced-motion: reduce){
   .setup-net i,.setup-caret{animation:none}
 }
+
+/* ============================ PANNEAU TRACE — ONGLETS ============================ */
+.ptabs-head{align-items:center;gap:2px}
+.ptab{
+  background:transparent;border:1px solid var(--line);color:var(--dim);
+  font-family:var(--mono);font-size:8px;letter-spacing:1.2px;padding:2px 6px;cursor:pointer;
+}
+.ptab:hover{color:var(--txt);border-color:var(--dim)}
+.ptab.on{color:var(--bg);background:var(--accent);border-color:var(--accent)}
+.memory-bars{padding:4px 6px 2px;display:flex;flex-direction:column;gap:3px;max-height:150px;overflow-y:auto}
+.memory-row{display:grid;grid-template-columns:64px 1fr 34px;gap:6px;align-items:center;font-size:8px}
+.memory-name{color:var(--txt);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.memory-cap{position:relative;height:7px;background:#0a2027;border:1px solid var(--line);overflow:hidden}
+.memory-fill{position:absolute;left:0;top:0;bottom:0;background:var(--accent);opacity:.85;transition:width .3s}
+.memory-row.hot .memory-fill{background:var(--hot)}
+.memory-row.traced .memory-fill{background:#ffb454}
+.memory-val{color:var(--dim);text-align:right;font-variant-numeric:tabular-nums}
+.memory-row.traced .memory-val{color:#ffb454}
+.memory-empty{padding:10px 8px;font-size:8.5px;color:var(--dim);line-height:1.5}
+.memory-total{
+  display:flex;justify-content:space-between;gap:8px;margin:2px 6px 0;
+  border-top:1px solid var(--line);padding:3px 0 1px;font-size:8px;color:var(--dim);
+}
+.memory-total b{color:var(--accent);font-weight:600}

@@ -138,7 +138,7 @@
     if (!b.welcomed) { b.welcomed = true; mailBienvenue(); }
 
     setInterval(() => {
-      if (global.LabyIntro && global.LabyIntro.isOpen()) return;
+      if (global.LabyPause ? global.LabyPause.active() : (global.LabyIntro && global.LabyIntro.isOpen())) return;
       // restore() remplace l'objet mail : ne pas conserver une référence vers
       // l'ancienne boîte, sinon les échéances et le phishing se désynchronisent.
       const courant = game();
@@ -261,6 +261,7 @@
 
   global.LabyMail = { open: ouvrir, poster, inbox: () => boite().inbox };
 
-  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot);
+  if (global.LabyPause && global.LabyPause.quandPret) global.LabyPause.quandPret(boot);
+  else if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot);
   else boot();
 })(typeof window !== 'undefined' ? window : globalThis);

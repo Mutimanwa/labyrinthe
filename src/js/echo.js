@@ -207,12 +207,15 @@
   };
 
   if (typeof document !== 'undefined') {
+    // Attend la restauration complète de la partie (laby:ready) — jamais
+    // d'enchères sur un game à moitié restauré.
     const boot = () => {
       const g = (global.LABYRINTHE && global.LABYRINTHE.game);
-      if (!g) return void setTimeout(boot, 500);
+      if (!g) { console.error('[echo] game indisponible au signal laby:ready'); return; }
       embrancherBus(g);
     };
-    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot);
+    if (global.LabyPause && global.LabyPause.quandPret) global.LabyPause.quandPret(boot);
+    else if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot);
     else boot();
   }
   if (typeof module !== 'undefined' && module.exports) module.exports = global.LabyEcho;
