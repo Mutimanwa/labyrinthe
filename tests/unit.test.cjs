@@ -273,3 +273,62 @@ test('missions web : solutions exécutées et faux résultats refusés', async (
     assert.equal(mission.validate(g.world, g.shell, g.events).done, true, `solution refusée : ${mission.id}`);
   }
 });
+
+test('profil local : empreinte PBKDF2 salée, vérification et rejet des falsifications', async () => {
+  require('../src/js/credentials.js');
+  const C = globalThis.LabyCredentials;
+  const acc = await C.create('mirroj', 'motdepasse-fictif');
+  assert.equal(acc.nom, 'mirroj');
+  assert.equal(acc.algo, 'pbkdf2-sha256-v1');
+  assert.equal(acc.hash.length, 64);
+  assert.equal(acc.salt.length, 32);
+  assert(!JSON.stringify(acc).includes('motdepasse-fictif'), 'le mot de passe ne doit jamais apparaître en clair');
+  assert.equal(await C.verify(acc, 'motdepasse-fictif'), true);
+  assert.equal(await C.verify(acc, 'mauvais'), false);
+  assert.equal(C.validStored(acc), true);
+  assert.equal(C.validStored(Object.assign({}, acc, { hash: '0'.repeat(64) })), true, 'structure ≠ identité : la structure reste valide');
+  assert.equal(await C.verify(Object.assign({}, acc, { hash: '0'.repeat(64) }), 'motdepasse-fictif'), false);
+  assert.equal(C.validStored({ nom: 'joueur', legacy: true }), true);
+  assert.equal(C.validStored({ nom: 'x'.repeat(32) }), false);
+  assert.equal(C.validStored(acc) && JSON.stringify(acc).includes('iterations'), true);
+  // Le jeu refuse aussi un profil complet dont l'itération est absurde.
+  const g = newGame();
+  assert.equal(g.profile, null);
+  assert.equal(g.world.user, 'joueur');
+  g.setProfile(acc);
+  assert.equal(g.world.user, 'mirroj');
+  assert.equal(g.homeUser(), 'mirroj');
+  const saved = g.serialize();
+  const loaded = newGame();
+  loaded.restore(saved);
+  assert.equal(loaded.profile.nom, 'mirroj');
+  assert.equal(loaded.world.user, 'mirroj');
+  // Ancienne sauvegarde sans profil : identité héritée, aucun verrou.
+  const legacy = JSON.parse(saved);
+  delete legacy.profile;
+  const old = newGame();
+  old.restore(JSON.stringify(legacy));
+  assert.equal(old.profile, null);
+  assert.equal(old.world.user, 'joueur');
+  assert.equal(old.homeUser(), 'joueur');
+  // Profil trafiqué dans le fichier : rejet avant toute mutation.
+  const bad = JSON.parse(saved);
+  bad.credits = 98765;
+  bad.profile = { nom: 'mirroj', algo: 'md5', iterations: 1, salt: 'zz', hash: 'xx' };
+  assert.throws(() => old.restore(JSON.stringify(bad)), /invalide/);
+  assert.equal(old.credits, 0);
+});
+
+test('profil local : un nom déjà utilisé comme racine est refusé', () => {
+  const C = globalThis.LabyCredentials;
+  assert.equal(C.validName('mirroj'), true);
+  assert.equal(C.validName('Mirroj'), false);
+  assert.equal(C.validName('root'), false);
+  assert.equal(C.validName('1mirroj'), false);
+  assert.equal(C.validName('a'), false);
+  assert.equal(C.validName('a'.repeat(24)), true);
+  assert.equal(C.validName('a'.repeat(25)), false);
+  assert.equal(C.validName('mirroj-'), true);
+  assert.equal(C.validName('mir_roj'), true);
+  assert.equal(C.validName('mir roj'), false);
+});

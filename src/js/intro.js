@@ -46,8 +46,15 @@
     pauseAt = now;
   }
 
+  function effectiveName() {
+    const g = game();
+    return (g && g.profile && g.profile.nom) || 'joueur';
+  }
   function render(step) {
     step = clampStep(step);
+    const name = effectiveName();
+    for (const el of document.querySelectorAll('[data-intro-user]')) el.textContent = name + '@poste:~$';
+    for (const el of document.querySelectorAll('[data-intro-user-name]')) el.textContent = name;
     for (const page of document.querySelectorAll('[data-intro-page]')) {
       page.hidden = Number(page.dataset.introPage) !== step;
     }

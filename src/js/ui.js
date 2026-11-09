@@ -89,6 +89,10 @@
   let game = null, cmdHistory = [], histIdx = -1, displayMode = 'connect', editorPath = null;
   let editorNode = null, editorOwner = null;
   let resetInProgress = false;
+  // Vrai tant que le profil de la session n'est pas réglé (configuration
+  // initiale ou déverrouillage) : autoSave ne doit JAMAIS écraser la
+  // sauvegarde pendant ce temps.
+  let bootGate = true;
 
   // -------------------------------------------------- THÈME
   function applyTheme() {
@@ -112,11 +116,16 @@
     const s = $('termScroll'); s.scrollTop = s.scrollHeight;
   }
   // Chemin absolu → chemin « ~ » comme un vrai shell.
+  // L'image héritée du poste garde /home/joueur quel que soit le nom de
+  // session choisi : c'est elle qui détermine la racine « ~ ».
+  const HOME_DIR = '/home/joueur';
   function tildePath(p) {
-    const u = game.world.user || 'joueur';
+    const u = (game && game.world && game.world.user) || 'joueur';
     const home = u === 'root' ? '/root' : '/home/' + u;
     if (p === home) return '~';
     if (p.startsWith(home + '/')) return '~' + p.slice(home.length);
+    // Session nommée sur l'image héritée : /home/joueur reste la racine « ~ ».
+    if (home !== HOME_DIR && (p === HOME_DIR || p.startsWith(HOME_DIR + '/'))) return '~' + p.slice(HOME_DIR.length);
     return p || '/';
   }
   // Le prompt exact, calculé à chaque frappe de commande.
@@ -865,10 +874,9 @@
 
   // -------------------------------------------------- SAUVEGARDE
   function autoSave() {
-    if (!resetInProgress && game) {
-      if (window.LabyIntro) window.LabyIntro.checkpoint();
-      SaveStore.set(game.serialize());
-    }
+    if (bootGate || resetInProgress || !game) return;
+    if (window.LabyIntro) window.LabyIntro.checkpoint();
+    SaveStore.set(game.serialize());
   }
   // Dans la coque native Tauri, on écrit un VRAI fichier sur le disque.
   // Dans un navigateur, on retombe sur le téléchargement classique.
@@ -908,12 +916,20 @@
     }
   }
 
+  // Identité affichée après un import : la session adopte le profil de la
+  // partie chargée (mot de passe compris au prochain lancement).
+  function profileNote() {
+    if (game.profile && game.profile.nom) {
+      say('Identité de la partie : ' + game.profile.nom + '@poste (10.10.0.5)', 'dim');
+    }
+  }
+
   async function importNative() {
     const T = native();
     try {
       const data = await T.core.invoke('import_save');
       if (data === null) { say('Import annulé.'); return true; }
-      restoreSafely(data); say('Sauvegarde importée.', 'ok');
+      restoreSafely(data); say('Sauvegarde importée.', 'ok'); profileNote();
       return true;
     } catch (e) { say('Import natif impossible : ' + e, 'err'); return false; }
   }
@@ -934,7 +950,7 @@
     const d = await SaveStore.get();
     if (!d) { say('Aucune sauvegarde trouvée.', 'err'); return; }
     try {
-      restoreSafely(d);
+      restoreSafely(d); profileNote();
       const support = window.LabyBridge && window.LabyBridge.tauri ? 'SQLite' : 'localStorage';
       say(`Partie restaurée (${support}).`, 'ok');
     } catch (e) { say('Sauvegarde illisible : ' + e.message, 'err'); }
@@ -1030,17 +1046,97 @@
     game.say = function (text, cls) { origSay(text, cls); if (String(text).length) say(text, cls); trimTerm(); };
   }
 
+  // Inspecte la sauvegarde sans la charger : décide si la session est
+  // verrouillée (profil complet), héritée d'avant les profils (migration)
+  // ou illisible. Ne jette jamais : le contenu réel est de toute façon
+  // ré-analysé par restoreSafely.
+  function peekSave(saved) {
+    if (!saved) return { kind: 'none' };
+    let d = null;
+    try { d = JSON.parse(saved); } catch (e) { return { kind: 'corrupt' }; }
+    if (!d || typeof d !== 'object' || Array.isArray(d)) return { kind: 'corrupt' };
+    const p = d.profile;
+    if (p && window.LabyCredentials && window.LabyCredentials.validStored(p) && !p.legacy) {
+      return { kind: 'locked', profile: p };
+    }
+    if (!p || p.legacy === true) return { kind: 'legacy' };
+    return { kind: 'corrupt' };
+  }
+
+  // Phase préalable obligatoire : créer/déverrouiller le profil local.
+  // Renvoie ce qui a été fait ; en cas de remise à zéro, la page recharge.
+  async function profileGate() {
+    const saved = await SaveStore.get();
+    if (!window.LabySetup || !window.LabyCredentials) {
+      // Dégradé mais jamais bloquant : la partie débute sans profil.
+      console.error('Configuration de la station indisponible : scripts manquants.');
+      return { saved, created: null, degraded: true };
+    }
+    try {
+      const peek = peekSave(saved);
+      if (peek.kind === 'locked') {
+        const result = await window.LabySetup.run({
+          mode: 'unlock',
+          profile: peek.profile,
+          onUnlock: async pass => !!(await window.LabyCredentials.verify(peek.profile, pass)),
+          onWipe: async () => { await SaveStore.del(); }
+        });
+        if (result === 'wiped') { window.location.reload(); return { saved: null, created: null, wiped: true }; }
+        return { saved, created: null };
+      }
+      // Première utilisation, ancienne sauvegarde sans profil, ou fichier
+      // illisible : la station exige d'abord un profil local.
+      const suggested = peek.kind === 'legacy' ? 'joueur' : '';
+      let created = null;
+      await window.LabySetup.run({
+        mode: 'setup',
+        suggestedName: suggested,
+        onCreate: async (name, password) => {
+          try {
+            created = await window.LabyCredentials.create(name, password);
+            return { ok: true };
+          } catch (e) {
+            return { ok: false, error: e.message };
+          }
+        }
+      });
+      return { saved, created };
+    } catch (e) {
+      console.error('Configuration de la station impossible :', e);
+      return { saved, created: null, degraded: true };
+    }
+  }
+
   async function boot(fresh) {
-    const saved = fresh ? null : await SaveStore.get();
+    const gate = fresh ? { saved: null, created: null } : await profileGate();
+    if (gate.wiped) return; // rechargement en cours
+    if (gate.degraded) say('Configuration de la station impossible. La partie démarre sans profil.', 'warn');
+    const saved = gate.saved;
     let restored = false;
     if (saved) {
       try {
         restoreSafely(saved);
         restored = true;
-        say('Partie précédente restaurée. Tape "objectif" pour reprendre.', 'ok'); say('');
+        if (gate.created) {
+          // Migration : la partie est restaurée, le nouveau profil s'y attache.
+          game.setProfile(gate.created);
+          say('Profil local créé et lié à ta partie. Tape "objectif" pour reprendre.', 'ok');
+        } else {
+          say('Partie précédente restaurée. Tape "objectif" pour reprendre.', 'ok');
+        }
+        if (game.profile) say('Session : ' + game.profile.nom + '@poste (10.10.0.5)', 'dim');
+        say('');
       } catch (e) {
         say('Sauvegarde précédente illisible : ' + e.message + '. Une nouvelle partie est ouverte.', 'warn');
+        // Conserver l'illisible pour inspection au lieu de l'écraser.
+        try { if (!window.LabyBridge || !window.LabyBridge.tauri) Store.set('labyrinthe.save.v2.corrompu', saved); } catch (e2) { }
+        try { await SaveStore.del(); } catch (e2) { }
       }
+    }
+    if (!restored && gate.created) {
+      try { game.setProfile(gate.created); } catch (e) { /* profil déjà vérifié à la création */ }
+      say('Session : ' + gate.created.nom + '@poste (10.10.0.5)', 'dim');
+      say('');
     }
     if (!restored) {
       say('====================================', 'rule');
@@ -1065,6 +1161,8 @@
       say('Stockage local bloqué dans cet aperçu : utilise "exporter".', 'warn');
       say('');
     }
+    // La sauvegarde est restaurée ou mise de côté : la barrière s'ouvre.
+    bootGate = false;
     fullRender();
     if (window.LabyTutorial) window.LabyTutorial.start();
     if (window.LabyIntro) window.LabyIntro.start({ onChange: autoSave });
@@ -1116,7 +1214,7 @@
     $('fileInput').addEventListener('change', e => {
       const f = e.target.files[0]; if (!f) return;
       const rd = new FileReader();
-      rd.onload = () => { try { restoreSafely(String(rd.result)); say('Sauvegarde importée.', 'ok'); } catch (err) { say('Fichier invalide : ' + err.message, 'err'); } };
+      rd.onload = () => { try { restoreSafely(String(rd.result)); say('Sauvegarde importée.', 'ok'); profileNote(); } catch (err) { say('Fichier invalide : ' + err.message, 'err'); } };
       rd.readAsText(f); e.target.value = '';
     });
     document.querySelectorAll('[data-cmd]').forEach(b => { b.onclick = () => { submit(b.dataset.cmd); input.focus(); }; });
@@ -1150,7 +1248,8 @@
     // boucle d'horloge : 20 images/seconde
     setInterval(() => {
       const now = Date.now();
-      if (window.LabyIntro && window.LabyIntro.isOpen()) {
+      if ((window.LabySetup && window.LabySetup.isOpen()) ||
+          (window.LabyIntro && window.LabyIntro.isOpen())) {
         if (game._clockLast !== undefined) game._clockLast = now;
         return;
       }
