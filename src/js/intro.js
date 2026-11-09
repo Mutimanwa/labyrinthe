@@ -90,6 +90,7 @@
     if (!s.terminee) s.pauseEnregistreeA = now;
     s.etape = clampStep(step);
     pauseAt = now; pausedGame = g;
+    if (global.LabyPause) global.LabyPause.poser('intro');
     if (g._clockLast !== undefined) g._clockLast = now;
     $('app').inert = true;
     overlay.hidden = false;
@@ -102,6 +103,7 @@
     if (!overlay || overlay.hidden) return;
     overlay.hidden = true;
     $('app').inert = false;
+    if (global.LabyPause) global.LabyPause.lever('intro');
     pauseAt = null; pausedGame = null;
     const focus = priorFocus && priorFocus.isConnected && typeof priorFocus.focus === 'function' ? priorFocus : $('cmd');
     if (focus && focus !== document.body) focus.focus();

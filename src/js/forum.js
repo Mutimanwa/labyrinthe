@@ -101,15 +101,25 @@
   }
 
   /* ------------------------------------------------ réponses différées */
+  function activeContractIds() {
+    try {
+      if (global.LabyContracts && global.LabyContracts.activeIds) return global.LabyContracts.activeIds();
+      const g = game();
+      const actifs = (g && g.contractsState && g.contractsState.active) || [];
+      return actifs.map(x => (typeof x === 'string' ? x : x && x.id)).filter(Boolean);
+    } catch (e) { return []; }
+  }
+
   function choisirReponse(fil) {
     // Le PNJ pioche dans le niveau d'indice choisi par le joueur.
     const banque = REPONSES[fil.sujet] || REPONSES['contrat en cours'];
     let txt = banque[fil.niveau] || banque[0];
-    // Si un contrat data est actif et le sujet est "contrat en cours" :
-    // l'indice vient des hints_forum du contrat (toujours gradué, jamais la solution).
-    if (fil.sujet === 'contrat en cours' && global.LabyContracts) {
-      const actifs = etat() && game() ? (game().contractsState.active || []) : [];
-      const def = actifs.length && global.LabyContracts.defs().find(d => d.id === actifs[actifs.length - 1]);
+    // Si un contrat data est lié au fil (ou le dernier actif), l'indice vient
+    // de ses hints_forum — toujours gradué, jamais la solution (P1).
+    if (fil.sujet === 'contrat en cours' || fil.contratId) {
+      const actifs = activeContractIds();
+      const cible = fil.contratId || actifs[actifs.length - 1];
+      const def = cible && global.LabyContracts && global.LabyContracts.defs().find(d => d.id === cible);
       if (def && def.hints_forum && def.hints_forum[fil.niveau]) txt = def.hints_forum[fil.niveau];
     }
     const qui = PNJ[Math.floor(Math.random() * PNJ.length)];
@@ -123,7 +133,7 @@
     const g = game();
     if (!g) return void setTimeout(ordonnanceur, 2000);
     setInterval(() => {
-      if (global.LabyIntro && global.LabyIntro.isOpen()) return;
+      if (global.LabyPause ? global.LabyPause.active() : (global.LabyIntro && global.LabyIntro.isOpen())) return;
       const monde = g.worldMin || 0;
       let change = false;
       for (const fil of etat().threads) {
@@ -161,6 +171,9 @@
       auteur: 'toi',
       statut: 'attente',
       sujet, niveau,
+      // Lie le fil au contrat data actif (s'il y en a un) : la réponse du
+      // forum reste calée sur les hints_forum de CE contrat.
+      contratId: sujet === 'contrat en cours' ? (activeContractIds().slice(-1)[0] || null) : null,
       posts: [{ qui: 'toi', quand: heureMonde(), txt: texte || '…' }],
       reponseA: (g.worldMin || 0) + 120          // +2 h monde (≈ 2 min réelles)
     };
@@ -260,6 +273,8 @@
     const sel = document.createElement('select');
     sel.className = 'web-in';
     for (const s of Object.keys(REPONSES)) sel.appendChild(new Option(s, s));
+    // Un contrat data est en cours : pré-sélectionner le sujet correspondant.
+    if (activeContractIds().length) sel.value = 'contrat en cours';
     f.appendChild(sel);
 
     f.appendChild(el('div', 'web-form-titre', 'Niveau d\'indice demandé'));
@@ -291,17 +306,24 @@
   /* ------------------------------------------------ API navigateur (T2 hooks) */
   global.LabyForum = {
     canRoute: path => path === '/poser' || /^\/fil\/[\w-]+$/.test(path),
-    renderRoute(body, domain, path) {
+    // Un seul point d'entrée pour le navigateur : true = la page a été rendue.
+    // canRoute + renderRoute sont conservés pour la compatibilité mais ne
+    // doivent plus être appelés en deux temps (risque de désynchronisation).
+    tryRoute(body, domain, path) {
       if (path === '/poser') { rendrePoser(body); return true; }
       const m = path.match(/^\/fil\/([\w-]+)$/);
-      if (m) return rendreFil(body, m[1]);
-      return null;
+      if (m) return rendreFil(body, m[1]) === true;
+      return false;
+    },
+    renderRoute(body, domain, path) {
+      return global.LabyForum.tryRoute(body, domain, path) ? true : null;
     },
     renderList: rendreListe,
     pret: () => charges
   };
 
   function boot() { charger(); ordonnanceur(); }
-  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot);
+  if (global.LabyPause && global.LabyPause.quandPret) global.LabyPause.quandPret(boot);
+  else if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot);
   else boot();
 })(typeof window !== 'undefined' ? window : globalThis);

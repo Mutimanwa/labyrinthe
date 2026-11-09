@@ -62,9 +62,19 @@
       <div id="procStack"></div>
 
       <div class="panel idle" id="panelTrace">
-        <div class="tlab">TRACE :</div>
-        <div class="tnum" id="traceNum">--.--</div>
-        <div class="tnote" id="traceNote">Aucun traçage. trace off pour le mode serein.</div>
+        <div class="phead ptabs-head">TRACE<span class="sp"></span>
+          <button class="ptab on" id="tabTraceDetection" type="button" aria-pressed="true" aria-controls="traceDetection">DÉTECTION</button>
+          <button class="ptab" id="tabTraceMemory" type="button" aria-pressed="false" aria-controls="traceMemory">MÉMOIRE</button>
+        </div>
+        <div class="trace-view" id="traceDetection">
+          <div class="tlab">TRACE :</div>
+          <div class="tnum" id="traceNum">--.--</div>
+          <div class="tnote" id="traceNote">Aucun traçage. trace off pour le mode serein.</div>
+        </div>
+        <div class="trace-view" id="traceMemory" hidden>
+          <div id="memoryBars" class="memory-bars" aria-live="polite"></div>
+          <div class="tnote" id="memoryNote">Les machines se souviennent. Le temps efface — lentement.</div>
+        </div>
       </div>
 
     </div>
@@ -382,6 +392,7 @@
 </div>
 
 <script src="js/bridge.js"></script>
+<script src="js/pause.js"></script>
 <script src="js/credentials.js"></script>
 <script src="js/py.js"></script>
 <script src="js/engine.js"></script>

@@ -164,8 +164,8 @@
       }
       const page = s.pages[path];
       let routeDynamique = false;
-      if (!page && s.forum && global.LabyForum && global.LabyForum.canRoute(path)) {
-        routeDynamique = global.LabyForum.renderRoute(body, domain, path) === true;
+      if (!page && s.forum && global.LabyForum && global.LabyForum.tryRoute) {
+        routeDynamique = global.LabyForum.tryRoute(body, domain, path) === true;
       }
       if (routeDynamique) {
         document.title = 'LABYRINTHE — ' + s.title;

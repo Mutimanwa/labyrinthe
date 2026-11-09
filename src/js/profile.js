@@ -203,10 +203,11 @@
     construire();
     const b = $('rankBadge');
     if (b) b.onclick = ouvrir;
-    setInterval(rendreBadge, 1000);
+    setInterval(() => { if (!global.LabyPause || !global.LabyPause.active()) rendreBadge(); }, 1000);
     /* pile système : le rang monte aussi par la campagne (xp sans event technique) */
     let rangConnu = 0;
     setInterval(() => {
+      if (global.LabyPause && global.LabyPause.active()) return;
       const r = rank();
       if (rangConnu !== r) { annoncerRang(rangConnu, r); rangConnu = r; rendreBadge(); }
     }, 1500);
@@ -214,6 +215,7 @@
 
   global.LabyProfile = { rank, nomRang, open: ouvrir, refresh: peindre, RANGS };
 
-  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot);
+  if (global.LabyPause && global.LabyPause.quandPret) global.LabyPause.quandPret(boot);
+  else if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot);
   else boot();
 })(typeof window !== 'undefined' ? window : globalThis);

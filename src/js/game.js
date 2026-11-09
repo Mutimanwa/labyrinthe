@@ -331,7 +331,10 @@
           (event.ports != null && !Array.isArray(event.ports)))) {
         throw new Error('événements de sauvegarde invalides');
       }
-      if (d.contracts != null && (!isObject(d.contracts) || !Array.isArray(d.contracts.active) || !Array.isArray(d.contracts.done))) {
+      if (d.contracts != null && (!isObject(d.contracts) ||
+          !Array.isArray(d.contracts.active) || !Array.isArray(d.contracts.done) ||
+          !d.contracts.active.every(x => typeof x === 'string' || (isObject(x) && typeof x.id === 'string' && Number.isFinite(x.ts) && x.ts >= 0)) ||
+          !d.contracts.done.every(x => typeof x === 'string'))) {
         throw new Error('contrats de sauvegarde invalides');
       }
       if (d.tutorial != null && (!isObject(d.tutorial) ||
@@ -436,7 +439,15 @@
       // Les anciennes parties n'affichent pas le guide de force ; ◎ permet
       // de le rouvrir à tout moment.
       this.tutorial = d.tutorial || { step: 0, hidden: true };
+      // Les anciennes parties stockaient des chaînes nues : migrer vers
+      // { id, ts } (ts 0 = aucune contrainte temporelle).
       this.contractsState = d.contracts || { active: [], done: [] };
+      if (this.contractsState && Array.isArray(this.contractsState.active)) {
+        this.contractsState = {
+          active: this.contractsState.active.map(x => (typeof x === 'string' ? { id: x, ts: 0 } : { id: x.id, ts: x.ts })),
+          done: (this.contractsState.done || []).filter(x => typeof x === 'string')
+        };
+      }
       if (this.api) {
         if (typeof this.api.reset === 'function') this.api.reset();
         if (d.api && typeof this.api.restore === 'function') this.api.restore(d.api);

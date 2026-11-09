@@ -124,6 +124,7 @@
     const overlay = $('setup');
     if (!overlay) throw new Error('Écran de configuration introuvable.');
     state.open = true;
+    if (global.LabyPause) global.LabyPause.poser('setup');
     if (APP()) APP().inert = true;
     overlay.hidden = false;
     document.addEventListener('keydown', onKeydown, true);
@@ -148,6 +149,7 @@
 
   function close(result) {
     state.open = false;
+    if (global.LabyPause) global.LabyPause.lever('setup');
     const overlay = $('setup');
     overlay.hidden = true;
     if (APP()) APP().inert = false;
